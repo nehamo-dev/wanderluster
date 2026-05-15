@@ -226,10 +226,19 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           imageData: capturedImage ?? undefined,
         }),
       });
-      const data = await res.json();
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        console.error('[compose] non-JSON response, status:', res.status);
+        throw new Error(`API returned ${res.status}`);
+      }
+
       setThinking(false);
 
       if (!res.ok || data.error) {
+        console.error('[compose] api error:', data.error, res.status);
         setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: data.error ?? 'Something went wrong. Try again.' }]);
         return;
       }
@@ -259,9 +268,10 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         onClose();
         router.push({ pathname: '/(app)/trip/[id]', params: { id } });
       }, 700);
-    } catch {
+    } catch (err) {
+      console.error('[sendCompose]', err);
       setThinking(false);
-      setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: 'Connection lost. Try again.' }]);
+      setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: 'Something went wrong. Check the console for details.' }]);
     }
   }
 
@@ -308,7 +318,8 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           scrollRef.current?.scrollToEnd({ animated: false });
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('[sendChat]', err);
       setThinking(false);
       setMessages(prev => [...prev, {
         id: `w-${Date.now()}`, role: 'wayfinder',
