@@ -1,0 +1,140 @@
+# Wanderluster QA Checklist
+
+Run every item before pushing. Add new cases whenever a bug is reported.
+
+---
+
+## 1. Build
+
+- [ ] `npm run build` exits 0 with no errors or warnings
+- [ ] `dist/` contains `index.html`, `_expo/`, `assets/`
+- [ ] No TypeScript errors during build
+
+---
+
+## 2. Destination photos
+
+Regression: images go gray when Unsplash IDs expire, Wikimedia width mismatches, or wrong URL format.
+
+- [ ] Verify each hardcoded URL returns HTTP 200:
+  ```
+  curl -sI "<url>" | grep "^HTTP"
+  ```
+- [ ] **Tokyo** folio tile shows Shinjuku skyline (not gray)
+- [ ] **Salzburg** folio tile shows old town aerial (not gray)
+- [ ] **Yosemite** folio tile shows Tunnel View (not gray)
+- [ ] **Patagonia** wishlist tile shows Torres del Paine (not gray)
+- [ ] **Kyoto** wishlist tile shows Kiyomizu-dera (not gray)
+- [ ] **Rome** wishlist tile shows Trevi Fountain (not gray)
+- [ ] **Marrakech** wishlist tile shows Menara Gardens (not gray)
+- [ ] Wikimedia URLs use `960px-` prefix (not 900px or any other untested width)
+
+---
+
+## 3. Login page
+
+Regression: demo button disappeared when `__DEV__` gating was used.
+
+- [ ] "Continue with email" card is visible
+- [ ] "Try the demo" card is visible with "No account needed" subtitle
+- [ ] Tapping "Try the demo" navigates to `/(app)` home screen
+- [ ] Magic link field appears when "Continue with email" is tapped
+
+---
+
+## 4. Home screen
+
+- [ ] "FOLIOS · READY TO START" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
+- [ ] "ON YOUR WISHLIST" section shows 4 tiles (Patagonia, Kyoto, Rome, Marrakech)
+- [ ] Tapping a folio tile navigates to the trip detail screen
+- [ ] Wayfinder dock (bottom) is visible
+- [ ] "Throw it at me" create section is visible
+
+---
+
+## 5. Wayfinder — new trip flow
+
+Regression: Wayfinder chatted indefinitely without creating a folio; compose mode bypassed conversation.
+
+- [ ] Opening Wayfinder with no folio shows suggestion list
+- [ ] Typing a trip idea (e.g. "I want to go to Lisbon") → Wayfinder asks exactly 3 questions in one message
+- [ ] Answering the questions → Wayfinder confirms and shows "Building your folio now…"
+- [ ] Folio is created and app navigates to the trip detail screen automatically
+- [ ] `[COMPOSE: ...]` tag is NOT visible in the chat — stripped from display
+
+---
+
+## 6. Wayfinder — API connectivity
+
+Regression: "Connection lost" on both localhost and Vercel due to routing issues and silent catch blocks.
+
+- [ ] On dev server (`npm run web`): curl test passes:
+  ```
+  curl -X POST http://localhost:8082/api/wayfinder \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"Hello"}],"folio":null}'
+  ```
+- [ ] On dev server: curl test for compose passes:
+  ```
+  curl -X POST http://localhost:8082/api/compose \
+    -H "Content-Type: application/json" \
+    -d '{"mode":"words","input":"5 days in Tokyo"}'
+  ```
+- [ ] On Vercel: Wayfinder chat responds (not "Connection lost")
+- [ ] On Vercel: Creating a new trip via conversation produces a folio
+- [ ] Error messages show actual error text (not silent or generic "Something went wrong")
+
+---
+
+## 7. Compose / JSON robustness
+
+Regression: AI returns malformed JSON (unescaped newlines/quotes, trailing commas) causing parse failure.
+
+- [ ] Multi-day trip (7+ days) composes without JSON parse error
+- [ ] Sanitizer handles unescaped newlines in string values
+- [ ] Sanitizer handles trailing commas before `]` or `}`
+- [ ] `max_tokens` is 8000 in both `api/compose.ts` and `app/api/compose+api.ts`
+
+---
+
+## 8. Trip detail screen
+
+- [ ] Hero image shows for known destinations (Tokyo, Salzburg, Yosemite)
+- [ ] Day cards render with correct date and day-of-week
+- [ ] Suggested events show "Suggested" badge
+- [ ] Confirmed events (user-provided) do NOT show "Suggested" badge
+- [ ] Expanding an event shows tips / map link
+- [ ] Map link contains full address including city (not just venue name)
+- [ ] Wayfinder opens from within the trip screen and has folio context
+
+---
+
+## 9. Vercel deployment
+
+Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead regex unreliable.
+
+- [ ] `vercel.json` has explicit pass-through rewrites for `/api/compose`, `/api/wayfinder`, `/api/suggest`, `/api/feedback` BEFORE the `/(.*) → /index.html` catch-all
+- [ ] Edge functions handle `OPTIONS` with `204 No Content` (CORS preflight)
+- [ ] `GROQ_API_KEY` is set in Vercel Environment Variables
+- [ ] `EXPO_PUBLIC_SUPABASE_URL` is set in Vercel Environment Variables
+- [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY` is set in Vercel Environment Variables
+- [ ] `lib/supabase.web.ts` uses `|| 'https://placeholder.supabase.co'` fallback (not `!` assertion)
+
+---
+
+## 10. Reported bugs tracker
+
+Add every bug reported by the user here so it gets a regression test.
+
+| # | Bug | Test |
+|---|-----|------|
+| 1 | Destination images go gray | § 2 photo checks |
+| 2 | Demo button disappeared from login | § 3 login checks |
+| 3 | "Connection lost" on Vercel and localhost | § 6 API connectivity |
+| 4 | JSON parse error from AI output | § 7 compose checks |
+| 5 | Wayfinder chats forever, never creates folio | § 5 new trip flow |
+| 6 | Wikimedia 400 errors from wrong px width | § 2 photo checks |
+| 7 | `supabaseUrl is required` during Vercel build | § 9 Vercel checks |
+| 8 | Day-of-week wrong (AI was guessing) | § 8 day card dates |
+| 9 | AI hallucinating confirmed events | § 8 suggested badge |
+| 10 | Map link unresolvable (no city in address) | § 8 map address |
