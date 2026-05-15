@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Palette } from '../../constants/theme';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, Folio } from '../../types';
 import { router } from 'expo-router';
 import { FOLIOS, WAYFINDER_GREETINGS } from '../../data/mock';
 import { generateTripPalette } from '../../constants/theme';
@@ -13,34 +13,73 @@ import { useFolios } from '../../lib/folios-context';
 
 type ComposeMode = 'screenshots' | 'words' | 'link' | null;
 
-const SUGGESTIONS = [
-  'What should I do on Day 4?',
-  'Do I need a visa with a US passport?',
-  'Best restaurants near my hotel?',
-  'Pack list for 10 days in spring',
-];
-
 const COMPOSE_INTROS: Record<string, string> = {
-  screenshots: 'Drop in a file — a PDF itinerary, confirmation email, or Notion export. I\'ll read what I can and draft a folio from it.',
-  words: 'Tell me where, when, and how it should feel. Even a rough idea is enough — I\'ll shape the rest.',
-  link: 'Paste a link — an Airbnb listing, Google Doc, blog post, or article. I\'ll extract what\'s useful and build the structure.',
+  screenshots: 'Drop in a file — a PDF itinerary, confirmation email, or screenshot. I\'ll read what I can and draft a folio.',
+  words: 'Tell me where, when, and how it should feel. Even a rough idea is enough.',
+  link: 'Paste a link — an Airbnb listing, Google Doc, blog post, or article. I\'ll extract what\'s useful.',
 };
+
+function buildSuggestions(folio?: Folio | null): string[] {
+  if (!folio) {
+    return [
+      'Plan a long weekend in Lisbon',
+      'Best cities for solo travel in Asia',
+      'I have flights booked, help me plan the rest',
+      'Hidden gems in southern Italy',
+    ];
+  }
+  const { destination, country, days, season } = folio;
+  const isUSA = /united states|usa|\bUS\b/i.test(country);
+  const suggestions: string[] = [];
+
+  suggestions.push(`What shouldn't I miss in ${destination}?`);
+  suggestions.push(`Best local restaurants in ${destination}`);
+  if (days.length > 2) {
+    suggestions.push(`Any ideas for Day ${Math.min(3, days.length)}?`);
+  }
+  if (!isUSA) {
+    suggestions.push(`Do I need a visa for ${country}?`);
+  } else {
+    suggestions.push(`Best neighbourhoods to stay in ${destination}`);
+  }
+  const seasonLower = (season ?? '').toLowerCase();
+  suggestions.push(`What to pack for ${seasonLower || 'the trip'} in ${destination}`);
+
+  return suggestions.slice(0, 4);
+}
 
 function seedMessages(folioId?: string, composeMode?: ComposeMode): ChatMessage[] {
   if (composeMode) {
     return [{ id: 'seed', role: 'wayfinder', text: COMPOSE_INTROS[composeMode] }];
   }
-  const folio = folioId ? FOLIOS[folioId] : null;
-  if (folio) {
-    return [{
-      id: 'seed', role: 'wayfinder',
-      text: `Your ${folio.destination} folio is open. ${WAYFINDER_GREETINGS[folio.id] ?? ''}`,
-    }];
-  }
-  return [{
-    id: 'seed', role: 'wayfinder',
-    text: 'Three folios are waiting. Each one a different season. Choose, and I will take care of the rest.',
-  }];
+  // In chat mode: no seed message — just show suggestions
+  return [];
+}
+
+// ✦ compass-rose icon — four-pointed star with gradient fill
+function WayfinderIcon({ size = 32, accent, bg }: { size: number; accent: string; bg: string }) {
+  const arm = size * 0.28;
+  const tip = size * 0.46;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <LinearGradient
+        colors={[accent, '#1a1210']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
+      >
+        {/* North tip */}
+        <View style={[styles.iconArm, { width: arm, height: tip, top: 0, left: (size - arm) / 2, borderRadius: arm / 2 }]} />
+        {/* South tip */}
+        <View style={[styles.iconArm, { width: arm, height: tip, bottom: 0, left: (size - arm) / 2, borderRadius: arm / 2, opacity: 0.55 }]} />
+        {/* West tip */}
+        <View style={[styles.iconArm, { height: arm, width: tip, left: 0, top: (size - arm) / 2, borderRadius: arm / 2, opacity: 0.55 }]} />
+        {/* East tip */}
+        <View style={[styles.iconArm, { height: arm, width: tip, right: 0, top: (size - arm) / 2, borderRadius: arm / 2 }]} />
+        {/* Centre dot */}
+        <View style={{ width: size * 0.14, height: size * 0.14, borderRadius: size * 0.07, backgroundColor: bg, opacity: 0.9 }} />
+      </LinearGradient>
+    </View>
+  );
 }
 
 interface Props {
@@ -59,11 +98,14 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
   const [thinking, setThinking] = useState(false);
   const [composed, setComposed] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [imageData, setImageData] = useState<string | null>(null); // base64 data URL for images
+  const [imageData, setImageData] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const slideAnim = useRef(new Animated.Value(1)).current;
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+
+  const folio = folioId ? FOLIOS[folioId] ?? null : null;
+  const suggestions = buildSuggestions(folio);
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -95,7 +137,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
       const file = el.files?.[0];
       if (!file) return;
       setFileName(file.name);
-
       const isImage = file.type.startsWith('image/');
       if (isImage) {
         const reader = new FileReader();
@@ -170,7 +211,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
 
       setMessages(prev => [...prev, {
         id: `w-${Date.now()}`, role: 'wayfinder',
-        text: `Your ${raw.destination} folio is ready. Opening it now.`,
+        text: `${raw.destination} folio ready. Opening now.`,
       }]);
 
       setTimeout(() => {
@@ -199,8 +240,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.text!,
         }));
-
-      const folio = folioId ? FOLIOS[folioId] ?? null : null;
 
       const response = await fetch('/api/wayfinder', {
         method: 'POST',
@@ -256,7 +295,9 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
     composeMode === 'link' ? 'Paste a URL'
       : composeMode === 'words' ? 'Where to, and how should it feel?'
         : composeMode === 'screenshots' ? 'Or describe your trip in words…'
-          : 'Ask Wayfinder anything';
+          : 'Ask anything about your trip…';
+
+  const showSuggestions = !composeMode && messages.length === 0 && !thinking;
 
   return (
     <>
@@ -275,9 +316,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <LinearGradient colors={[T.accent, T.ink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerAvatar}>
-                <Text style={[styles.headerAvatarText, { color: T.bg }]}>W</Text>
-              </LinearGradient>
+              <WayfinderIcon size={36} accent={T.accent} bg={T.bg} />
               <View>
                 <Text style={[styles.headerName, { color: T.ink }]}>Wayfinder</Text>
                 <Text style={[styles.headerSub, { color: T.muted }]}>
@@ -299,9 +338,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
             ))}
             {thinking && (
               <View style={styles.thinkingRow}>
-                <LinearGradient colors={[T.accent, T.ink]} style={styles.thinkingAvatar}>
-                  <Text style={{ color: T.bg, fontSize: 11, fontWeight: '500' }}>W</Text>
-                </LinearGradient>
+                <WayfinderIcon size={26} accent={T.accent} bg={T.bg} />
                 <View style={[styles.thinkingBubble, { backgroundColor: T.surface, borderColor: T.hair }]}>
                   <View style={styles.dotsRow}>
                     {[0, 1, 2].map(i => <View key={i} style={[styles.dot, { backgroundColor: T.muted }]} />)}
@@ -309,56 +346,75 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
                 </View>
               </View>
             )}
+
+            {/* Inline suggestions — shown instead of a blank state */}
+            {showSuggestions && (
+              <View style={styles.suggestionsList}>
+                <Text style={[styles.suggestionsLabel, { color: T.muted }]}>
+                  {folio ? `About your ${folio.destination} trip` : 'Where do you want to go?'}
+                </Text>
+                {suggestions.map((s, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => send(s)}
+                    style={[styles.suggestionRow, { borderBottomColor: T.hair, borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0 }]}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.suggestionText, { color: T.ink }]}>{s}</Text>
+                    <Text style={[styles.suggestionArrow, { color: T.muted }]}>›</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </ScrollView>
 
-          {/* File upload strip (screenshots mode, before first send) */}
-          {composeMode === 'screenshots' && !composed && (
-            <>
-              {imagePreview && (
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                <View style={[styles.imagePreviewWrap, { borderColor: T.hair }]}>
-                  {/* On web, use a native img element via dangerouslySetInnerHTML workaround */}
-                  <ImagePreview uri={imagePreview} />
-                  <TouchableOpacity
-                    onPress={() => { setImageData(null); setImagePreview(null); setFileName(null); }}
-                    style={[styles.imagePreviewClear, { backgroundColor: T.ink }]}
-                  >
-                    <Text style={{ color: T.bg, fontSize: 11 }}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+          {/* Image preview */}
+          {imagePreview && (
+            <View style={[styles.imagePreviewWrap, { borderColor: T.hair }]}>
+              <ImagePreview uri={imagePreview} />
               <TouchableOpacity
-                onPress={pickFile}
-                style={[styles.uploadStrip, { backgroundColor: T.surface, borderColor: T.hair }]}
+                onPress={() => { setImageData(null); setImagePreview(null); setFileName(null); }}
+                style={[styles.imagePreviewClear, { backgroundColor: T.ink }]}
               >
-                <Text style={[styles.uploadIcon, { color: T.ink }]}>{imageData ? '🖼' : '⬆'}</Text>
-                <View style={styles.uploadText}>
-                  <Text style={[styles.uploadTitle, { color: T.ink }]}>
-                    {fileName ?? 'Upload a file'}
-                  </Text>
-                  <Text style={[styles.uploadSub, { color: T.muted }]}>
-                    {fileName ? 'Ready — hit send' : 'Images, PDF, TXT, Markdown'}
-                  </Text>
-                </View>
-                {fileName && <Text style={[styles.uploadCheck, { color: T.accent }]}>✓</Text>}
+                <Text style={{ color: T.bg, fontSize: 11 }}>✕</Text>
               </TouchableOpacity>
-            </>
+            </View>
           )}
 
-          {/* Suggestion chips (regular chat only) */}
-          {!composeMode && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-              {SUGGESTIONS.map(s => (
-                <TouchableOpacity key={s} onPress={() => send(s)} style={[styles.chip, { backgroundColor: T.surface, borderColor: T.hair }]}>
-                  <Text style={[styles.chipText, { color: T.sub }]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          {/* File upload strip (screenshots compose mode only) */}
+          {isComposeFirst && composeMode === 'screenshots' && !imagePreview && (
+            <TouchableOpacity
+              onPress={pickFile}
+              style={[styles.uploadStrip, { backgroundColor: T.surface, borderColor: T.hair }]}
+            >
+              <Text style={[styles.uploadIcon, { color: T.ink }]}>⬆</Text>
+              <View style={styles.uploadText}>
+                <Text style={[styles.uploadTitle, { color: T.ink }]}>
+                  {fileName ?? 'Upload a file'}
+                </Text>
+                <Text style={[styles.uploadSub, { color: T.muted }]}>
+                  {fileName ? 'Ready — hit send' : 'Images, PDF, TXT, Markdown'}
+                </Text>
+              </View>
+              {fileName && <Text style={[styles.uploadCheck, { color: T.accent }]}>✓</Text>}
+            </TouchableOpacity>
           )}
 
           {/* Input bar */}
           <View style={[styles.inputBar, { borderTopColor: T.hair, backgroundColor: T.bg }]}>
+            {fileName && !imagePreview && (
+              <View style={[styles.fileChip, { backgroundColor: T.surface, borderColor: T.hair }]}>
+                <Text style={[styles.fileChipText, { color: T.sub }]}>📄 {fileName}</Text>
+                <TouchableOpacity onPress={() => { setFileName(null); setInput(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[{ color: T.muted, fontSize: 12, marginLeft: 6 }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={[styles.inputWrap, { backgroundColor: T.surface, borderColor: T.hair }]}>
+              {/* Attachment button — always visible */}
+              <TouchableOpacity onPress={pickFile} style={styles.attachBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}>
+                <Text style={[styles.attachIcon, { color: T.muted }]}>⌁</Text>
+              </TouchableOpacity>
               <TextInput
                 ref={inputRef}
                 value={input}
@@ -372,13 +428,13 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
                 multiline={composeMode === 'words'}
                 numberOfLines={composeMode === 'words' ? 3 : 1}
               />
-              <TouchableOpacity onPress={() => send()} style={[styles.sendButton, { backgroundColor: (input.trim() || imageData) ? T.ink : T.hair }]}>
+              <TouchableOpacity
+                onPress={() => send()}
+                style={[styles.sendButton, { backgroundColor: (input.trim() || imageData) ? T.ink : T.hair }]}
+              >
                 <Text style={[styles.sendArrow, { color: (input.trim() || imageData) ? T.bg : T.muted }]}>→</Text>
               </TouchableOpacity>
             </View>
-            <Text style={[styles.inputFooter, { color: T.muted }]}>
-              {isComposeFirst ? 'Wayfinder · Trip builder' : 'Voice · Upload · Chat'}
-            </Text>
           </View>
 
         </KeyboardAvoidingView>
@@ -391,7 +447,7 @@ function ImagePreview({ uri }: { uri: string }) {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     return (
       <View style={styles.imagePreviewInner}>
-        {/* @ts-ignore — web-only img element */}
+        {/* @ts-ignore */}
         <img src={uri} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </View>
     );
@@ -413,16 +469,12 @@ function MessageBubble({ m, theme: T }: { m: ChatMessage; theme: Palette }) {
 
   return (
     <View style={styles.wayfinderRow}>
-      <LinearGradient colors={[T.accent, T.ink]} style={styles.wfAvatar}>
-        <Text style={[styles.wfAvatarText, { color: T.bg }]}>W</Text>
-      </LinearGradient>
       <View style={styles.wfContent}>
         {m.text ? <Text style={[styles.bubbleText, { color: T.ink }]}>{m.text}</Text> : null}
       </View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', inset: 0 as any, zIndex: 90, backgroundColor: 'rgba(0,0,0,0.32)' },
@@ -435,28 +487,39 @@ const styles = StyleSheet.create({
   grabberRow: { alignItems: 'center', paddingTop: 8 },
   grabber: { width: 36, height: 4, borderRadius: 2 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingVertical: 14 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  headerAvatarText: { fontSize: 13, fontWeight: '500' },
-  headerName: { fontSize: 15, letterSpacing: -0.15 },
-  headerSub: { fontSize: 10.5, letterSpacing: 2.5, textTransform: 'uppercase', marginTop: 1 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerName: { fontSize: 15, letterSpacing: -0.2, fontWeight: '500' },
+  headerSub: { fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', marginTop: 2 },
   closeButton: { width: 30, height: 30, borderRadius: 15, borderWidth: 0.5, alignItems: 'center', justifyContent: 'center' },
   closeX: { fontSize: 12 },
   hairline: { height: 0.5 },
   messages: { flex: 1 },
-  messagesContent: { padding: 18, gap: 16 },
+  messagesContent: { padding: 20, gap: 14 },
   userRow: { alignItems: 'flex-end' },
   userBubble: { maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   wayfinderRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  wfAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  wfAvatarText: { fontSize: 11, fontWeight: '500' },
-  wfContent: { maxWidth: '88%', paddingTop: 2, gap: 8 },
-  bubbleText: { fontSize: 14, letterSpacing: -0.15, lineHeight: 20 },
+  wfContent: { flex: 1, paddingTop: 2 },
+  bubbleText: { fontSize: 14, letterSpacing: -0.15, lineHeight: 21 },
   thinkingRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
-  thinkingAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   thinkingBubble: { borderRadius: 18, borderWidth: 0.5, paddingHorizontal: 16, paddingVertical: 14 },
   dotsRow: { flexDirection: 'row', gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
+
+  // Suggestions list
+  suggestionsList: { marginTop: 8, gap: 0 },
+  suggestionsLabel: {
+    fontSize: 10, letterSpacing: 3, textTransform: 'uppercase',
+    fontFamily: 'monospace', marginBottom: 12,
+  },
+  suggestionRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 14,
+  },
+  suggestionText: { fontSize: 14.5, letterSpacing: -0.2, flex: 1 },
+  suggestionArrow: { fontSize: 20, marginLeft: 8 },
+
+  // Icon arms (compass rose)
+  iconArm: { position: 'absolute', backgroundColor: 'rgba(245,239,226,0.9)' },
 
   // Image preview
   imagePreviewWrap: {
@@ -470,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // File upload strip
+  // Upload strip
   uploadStrip: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 8,
@@ -482,17 +545,23 @@ const styles = StyleSheet.create({
   uploadSub: { fontSize: 11, marginTop: 2, letterSpacing: 0.2 },
   uploadCheck: { fontSize: 16 },
 
-  // Suggestion chips
-  chipsRow: { paddingHorizontal: 18, paddingVertical: 10, gap: 8 },
-  chip: { flexShrink: 0, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 0.5 },
-  chipText: { fontSize: 11.5, letterSpacing: -0.1 },
-
   // Input bar
-  inputBar: { padding: 8, paddingHorizontal: 16, paddingBottom: 22, borderTopWidth: 0.5 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 8, paddingVertical: 8, borderRadius: 24, borderWidth: 0.5 },
-  input: { flex: 1, fontSize: 14, letterSpacing: -0.15, minHeight: 36 },
+  inputBar: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28, borderTopWidth: 0.5 },
+  fileChip: {
+    flexDirection: 'row', alignItems: 'center',
+    alignSelf: 'flex-start', marginBottom: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 0.5,
+  },
+  fileChipText: { fontSize: 12, letterSpacing: -0.1 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 4, paddingRight: 6, paddingVertical: 6,
+    borderRadius: 24, borderWidth: 0.5,
+  },
+  attachBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  attachIcon: { fontSize: 20, letterSpacing: 0 },
+  input: { flex: 1, fontSize: 14, letterSpacing: -0.15, minHeight: 36, paddingHorizontal: 6 },
   sendButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   sendArrow: { fontSize: 16 },
-  inputFooter: { textAlign: 'center', marginTop: 10, fontFamily: 'monospace', fontSize: 9, letterSpacing: 3.5, textTransform: 'uppercase' },
-
 });

@@ -31,15 +31,12 @@ export function DayCard({
 
   const confirmedCount = day.events.filter(e => !e.suggested).length;
   const suggestedCount = day.events.filter(e => e.suggested).length;
-  const photoUrl = day.photoQuery
-    ? `https://source.unsplash.com/800x300/?${encodeURIComponent(day.photoQuery)}`
-    : undefined;
 
   return (
     <View style={[styles.card, { backgroundColor: T.surface, borderColor: T.hair }]}>
       <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.85}>
         <View style={{ position: 'relative' }}>
-          <DayBand folio={folio} height={expanded ? 110 : 78} idx={idx} photoUrl={photoUrl} />
+          <DayBand folio={folio} height={expanded ? 110 : 78} idx={idx} />
           <View style={[StyleSheet.absoluteFill, styles.bandContent]}>
             <View style={styles.bandLeft}>
               <Text style={styles.dayEyebrow}>

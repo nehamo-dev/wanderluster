@@ -5,7 +5,8 @@ const U = (id: string) => `https://images.unsplash.com/photo-${id}?w=600&q=85&fi
 export const FOLIO_PHOTOS: Record<string, string> = {
   tokyo:     U('1536098561742-ca998e48cbcc'), // cherry blossoms, Ueno park
   salzburg:  U('1467269204594-9661b134dd2b'), // Salzburg old town winter
-  yosemite:  U('1562015053-d82cca3a5b28'),    // Tunnel View — El Capitan, Half Dome, Bridalveil Fall
+  yosemite:  U('1562015053-d82cca3a5b28'),    // Tunnel View
+  austin:    U('1531218150217-54595bc2b934'), // Austin skyline at night
 };
 
 export const WISHLIST_PHOTOS: Record<string, string> = {
@@ -16,12 +17,15 @@ export const WISHLIST_PHOTOS: Record<string, string> = {
 };
 
 // Look up a photo by folio id first, then by destination name (lowercase)
+const ALL_PHOTOS = { ...FOLIO_PHOTOS, ...WISHLIST_PHOTOS };
+
 export function getDestinationPhoto(folioId: string, destination?: string): string | null {
-  if (FOLIO_PHOTOS[folioId]) return FOLIO_PHOTOS[folioId];
+  if (ALL_PHOTOS[folioId]) return ALL_PHOTOS[folioId];
   if (destination) {
-    const key = destination.toLowerCase();
-    const match = Object.entries(FOLIO_PHOTOS).find(([k]) => k === key);
-    if (match) return match[1];
+    // Match "Austin, Texas" → "austin", "New York City" → "new york" etc.
+    const key = destination.toLowerCase().split(',')[0].trim();
+    const match = ALL_PHOTOS[key] ?? Object.entries(ALL_PHOTOS).find(([k]) => key.startsWith(k) || k.startsWith(key))?.[1];
+    if (match) return match;
   }
   return null;
 }
