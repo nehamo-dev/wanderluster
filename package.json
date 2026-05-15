@@ -10,6 +10,9 @@
     "build": "expo export --platform web",
     "build:web": "expo export --platform web"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@expo/cli": "^54.0.24",
     "@expo/metro-runtime": "~6.1.2",
