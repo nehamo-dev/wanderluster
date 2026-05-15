@@ -86,7 +86,9 @@ OTHER RULES:
 - reason: suggested events only — one sentence why this was added. Omit for confirmed events.
 - highlights: 3–5 folio-level bullet points — timing, must-dos, budget
 - tldr: 2–3 sentences on overall rhythm and character
-- Pure JSON only — no markdown fences`;
+- Pure JSON only — no markdown fences
+- CONSISTENCY: produce the same number of days every time for the same input. Do not randomly vary duration.
+- TOOL MISUSE: if the input is a question rather than a trip description, still produce a best-guess folio — do not return an error message or a conversational reply.`;
 }
 
 async function fetchUrl(url: string): Promise<string> {

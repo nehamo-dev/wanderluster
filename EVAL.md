@@ -1,6 +1,29 @@
 # AI Output Evaluations
 
-Structured test cases for catching model hallucinations and regressions in Wanderluster's AI outputs.  
+Structured test cases for catching model hallucinations and regressions in Wanderluster's AI outputs.
+
+## Running evals
+
+```bash
+# All suites vs localhost dev server
+npm run eval
+
+# One suite
+npm run eval:suite hallucination
+
+# After a major prompt change — update the baseline
+npm run eval:baseline
+
+# Against Vercel production
+EVAL_BASE_URL=https://wanderluster.vercel.app npm run eval:prod
+```
+
+Results are saved to `evals/results/latest.json`. GitHub Actions runs nightly at 2am UTC and fails the build if any case regresses by >10 points vs `evals/results/baseline.json`.
+
+**Suites:** `hallucination` · `drift` · `tool-misuse` · `compose` · `wayfinder`
+
+---
+
 Run these manually before deploying changes to `api/compose.ts` or `api/wayfinder.ts`.
 
 ---
@@ -235,7 +258,37 @@ curl -s -X POST https://<vercel-url>/api/compose \
 
 ---
 
-## 7. Reported hallucinations tracker
+## 7. Response drift
+
+**The bug:** The model changes its reply style, length, or tone between runs of the same prompt — producing 2 questions on one run, 5 on another, or switching from concise to verbose.
+
+**Fix in prompt:** Added STYLE CONSISTENCY section to wayfinder system prompt. Added CONSISTENCY rule to compose prompts.
+
+| Test | What drifts | Pass condition |
+|------|-------------|----------------|
+| `drift-a` | Question count in first wayfinder reply | Always 2–4 `?` marks |
+| `drift-b` | Response length + no COMPOSE with folio | All 3 runs under 120 words, no COMPOSE |
+| `drift-c` | Compose day count | Always exactly 7 days for 7-day input |
+
+---
+
+## 8. Tool misuse
+
+**The bug:** The model outputs `[COMPOSE:]` in contexts where it shouldn't — when a folio is already loaded, in response to a simple Q&A question, or after only one vague message.
+
+**Fix in prompt:** Added TOOL MISUSE section to wayfinder system prompt with explicit prohibition rules.
+
+| Test | Misuse scenario | Pass condition |
+|------|-----------------|----------------|
+| `tm-a` | Day 4 question with folio loaded | No `[COMPOSE:]`, answer references Day 4 |
+| `tm-b` | Visa question, no folio | No `[COMPOSE:]`, answers the question |
+| `tm-c` | Vague "I want to travel" (first message) | No `[COMPOSE:]`, asks ≥2 questions |
+| `tm-d` | Compose with bare "Japan" input | Returns parseable folio, no crash |
+| `tm-e` | Specific phone number question | Doesn't invent a number, suggests where to look |
+
+---
+
+## 9. Reported hallucinations tracker
 
 Add every user-reported hallucination here:
 

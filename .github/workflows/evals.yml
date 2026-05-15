@@ -1,0 +1,89 @@
+name: Nightly Evals
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 2am UTC every night
+  workflow_dispatch:        # manual trigger from GitHub UI
+    inputs:
+      suite:
+        description: 'Suite to run (all / hallucination / drift / tool-misuse / compose / wayfinder)'
+        default: 'all'
+      update_baseline:
+        description: 'Update baseline after run?'
+        type: boolean
+        default: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run evals
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          EVAL_BASE_URL: ${{ secrets.EVAL_BASE_URL }}   # e.g. https://wanderluster.vercel.app
+        run: |
+          SUITE="${{ github.event.inputs.suite || 'all' }}"
+          UPDATE="${{ github.event.inputs.update_baseline || 'false' }}"
+          FLAGS="--suite $SUITE --json"
+          if [ "$UPDATE" = "true" ]; then FLAGS="$FLAGS --update-baseline"; fi
+          npx tsx evals/index.ts $FLAGS > evals/results/latest.json
+          echo "Exit code: $?"
+
+      - name: Parse results
+        id: parse
+        run: |
+          SCORE=$(jq '.totalScore' evals/results/latest.json)
+          PASSED=$(jq '.passed' evals/results/latest.json)
+          FAILED=$(jq '.failed' evals/results/latest.json)
+          REGRESSIONS=$(jq '.regressions | length' evals/results/latest.json)
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "regressions=$REGRESSIONS" >> $GITHUB_OUTPUT
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: evals/results/latest.json
+          retention-days: 90
+
+      - name: Commit updated baseline
+        if: github.event.inputs.update_baseline == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add evals/results/baseline.json
+          git diff --staged --quiet || git commit -m "chore: update eval baseline [skip ci]"
+          git push
+
+      - name: Fail on regressions
+        if: steps.parse.outputs.regressions != '0'
+        run: |
+          echo "::error::${{ steps.parse.outputs.regressions }} regression(s) detected. Score: ${{ steps.parse.outputs.score }}/100"
+          jq '.regressions[] | "  \(.caseId): \(.baselineScore) → \(.currentScore) (\(.delta))"' evals/results/latest.json
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Eval Results" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Score | ${{ steps.parse.outputs.score }}/100 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | ${{ steps.parse.outputs.passed }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.parse.outputs.failed }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Regressions | ${{ steps.parse.outputs.regressions }} |" >> $GITHUB_STEP_SUMMARY

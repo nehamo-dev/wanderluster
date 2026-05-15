@@ -61,7 +61,9 @@ DATES: Calculate the correct day of week using today's date. Format: "Mon · Mar
 - tips: 1–3 insider notes. Empty array [] if none.
 - rating: 0–5 for hotels/restaurants/attractions. Omit for flights/transport.
 - highlights: 3–5 folio-level bullet points
-- Pure JSON only — no markdown fences`;
+- Pure JSON only — no markdown fences
+- CONSISTENCY: produce the same number of days every time for the same input.
+- TOOL MISUSE: if the input looks like a question, still produce a best-guess folio — do not return conversational text.`;
 }
 
 async function fetchUrl(url: string): Promise<string> {

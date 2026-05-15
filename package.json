@@ -8,7 +8,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "expo export --platform web",
-    "build:web": "expo export --platform web"
+    "build:web": "expo export --platform web",
+    "eval": "tsx evals/index.ts",
+    "eval:suite": "tsx evals/index.ts --suite",
+    "eval:baseline": "tsx evals/index.ts --update-baseline",
+    "eval:prod": "EVAL_BASE_URL=$EVAL_BASE_URL tsx evals/index.ts"
   },
   "engines": {
     "node": ">=20"
@@ -37,6 +41,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "tsx": "^4.22.0",
     "typescript": "~5.9.2"
   },
   "private": true
