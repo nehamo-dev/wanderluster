@@ -268,10 +268,11 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         onClose();
         router.push({ pathname: '/(app)/trip/[id]', params: { id } });
       }, 700);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[sendCompose]', err);
       setThinking(false);
-      setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: 'Something went wrong. Check the console for details.' }]);
+      const msg = err?.message ?? String(err);
+      setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: `Error: ${msg}` }]);
     }
   }
 

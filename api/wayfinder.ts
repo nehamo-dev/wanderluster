@@ -47,7 +47,14 @@ function buildSystem(folio: Record<string, unknown> | null): string {
   return lines.join('\n');
 }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 export default async function handler(request: Request): Promise<Response> {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
