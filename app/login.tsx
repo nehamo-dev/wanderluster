@@ -132,15 +132,23 @@ export default function LoginScreen() {
             )}
           </View>
 
-          {/* Dev shortcut — skip auth in development */}
-          {__DEV__ && (
-            <TouchableOpacity
-              onPress={() => router.replace('/(app)')}
-              style={[styles.devSkip, { borderColor: T.hair }]}
-            >
-              <Text style={[styles.devSkipText, { color: T.muted }]}>Skip (dev only)</Text>
-            </TouchableOpacity>
-          )}
+          {/* Demo shortcut */}
+          <TouchableOpacity
+            onPress={() => router.replace('/(app)')}
+            style={[styles.card, { backgroundColor: T.surface, borderColor: T.hair }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.optionRow}>
+              <View style={[styles.optionIcon, { borderColor: T.hair }]}>
+                <Text style={[styles.optionIconText, { color: T.ink }]}>⊙</Text>
+              </View>
+              <View style={styles.optionText}>
+                <Text style={[styles.optionTitle, { color: T.ink }]}>Try the demo</Text>
+                <Text style={[styles.optionSub, { color: T.muted }]}>No account needed</Text>
+              </View>
+              <Text style={[styles.arrow, { color: T.muted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Footer */}
