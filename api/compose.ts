@@ -92,7 +92,12 @@ function extractJSON(raw: string): unknown {
   const start = stripped.indexOf('{');
   const end = stripped.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('No JSON object in response');
-  return JSON.parse(stripped.slice(start, end + 1));
+  const candidate = stripped.slice(start, end + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch (e: any) {
+    throw new Error(`Malformed JSON (response may have been truncated): ${e.message}`);
+  }
 }
 
 async function fetchUrl(url: string): Promise<string> {
@@ -132,7 +137,7 @@ export default async function handler(request: Request): Promise<Response> {
     if (imageData) {
       const result = await groq.chat.completions.create({
         model: 'llama-3.2-11b-vision-preview',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{
           role: 'user',
           content: [
@@ -150,7 +155,7 @@ export default async function handler(request: Request): Promise<Response> {
       }
       const result = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [
           { role: 'system', content: SYSTEM },
           { role: 'user', content },
