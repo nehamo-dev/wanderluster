@@ -307,16 +307,27 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
+      let fullText = '';
       while (!done) {
         const { value, done: d } = await reader.read();
         done = d;
         if (value) {
           const chunk = decoder.decode(value, { stream: true });
+          fullText += chunk;
+          // Strip the [COMPOSE:...] trigger from displayed text
+          const displayText = fullText.replace(/\[COMPOSE:[\s\S]*?\]/g, '').trimEnd();
           setMessages(prev => prev.map(m =>
-            m.id === replyId ? { ...m, text: (m.text ?? '') + chunk } : m
+            m.id === replyId ? { ...m, text: displayText } : m
           ));
           scrollRef.current?.scrollToEnd({ animated: false });
         }
+      }
+
+      // Auto-compose if Wayfinder included the trigger
+      const composeMatch = fullText.match(/\[COMPOSE:\s*([\s\S]+?)\]/);
+      if (composeMatch) {
+        const brief = composeMatch[1].trim();
+        setTimeout(() => autoCompose(brief), 400);
       }
     } catch (err) {
       console.error('[sendChat]', err);
@@ -324,6 +335,54 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
       setMessages(prev => [...prev, {
         id: `w-${Date.now()}`, role: 'wayfinder',
         text: 'Connection lost. Try again in a moment.',
+      }]);
+    }
+  }
+
+  async function autoCompose(brief: string) {
+    setThinking(true);
+    setMessages(prev => [...prev, {
+      id: `w-${Date.now()}`, role: 'wayfinder',
+      text: 'Building your folio now…',
+    }]);
+    try {
+      const res = await fetch('/api/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'words', input: brief }),
+      });
+      let data: any;
+      try { data = await res.json(); } catch {
+        throw new Error(`API returned ${res.status}`);
+      }
+      setThinking(false);
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Compose failed');
+
+      const raw = data.folio;
+      const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
+      const id = addFolio({
+        ...raw, palette,
+        title: raw.title ?? raw.destination,
+        days: (raw.days ?? []).map((d: any) => ({
+          ...d,
+          confirmed: d.events?.some((e: any) => !e.suggested) ?? false,
+          events: (d.events ?? []).map((e: any) => ({
+            ...e,
+            confirmed: e.suggested ? false : (e.confirmed ?? false),
+          })),
+        })),
+      });
+      setMessages(prev => [...prev, {
+        id: `w-${Date.now()}`, role: 'wayfinder',
+        text: `${raw.destination} folio ready. Opening now.`,
+      }]);
+      setTimeout(() => { onClose(); router.push({ pathname: '/(app)/trip/[id]', params: { id } }); }, 700);
+    } catch (err) {
+      console.error('[autoCompose]', err);
+      setThinking(false);
+      setMessages(prev => [...prev, {
+        id: `w-${Date.now()}`, role: 'wayfinder',
+        text: 'Had trouble building the folio. Try describing the trip again.',
       }]);
     }
   }
