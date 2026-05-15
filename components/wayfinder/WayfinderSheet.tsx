@@ -48,6 +48,44 @@ function buildSuggestions(folio?: Folio | null): string[] {
   return suggestions.slice(0, 4);
 }
 
+function useVoice(onTranscript: (t: string) => void) {
+  const [listening, setListening] = useState(false);
+  const recogRef = useRef<any>(null);
+
+  function toggle() {
+    if (typeof window === 'undefined') return;
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+
+    if (listening) {
+      recogRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const r = new SR();
+    r.continuous = false;
+    r.interimResults = true;
+    r.lang = 'en-US';
+    r.onresult = (e: any) => {
+      const transcript = Array.from(e.results as SpeechRecognitionResultList)
+        .map((res: SpeechRecognitionResult) => res[0].transcript)
+        .join('');
+      onTranscript(transcript);
+    };
+    r.onerror = () => setListening(false);
+    r.onend = () => setListening(false);
+    r.start();
+    recogRef.current = r;
+    setListening(true);
+  }
+
+  const supported = typeof window !== 'undefined' &&
+    ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  return { listening, toggle, supported };
+}
+
 function seedMessages(folioId?: string, composeMode?: ComposeMode): ChatMessage[] {
   if (composeMode) {
     return [{ id: 'seed', role: 'wayfinder', text: COMPOSE_INTROS[composeMode] }];
@@ -106,6 +144,9 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
 
   const folio = folioId ? FOLIOS[folioId] ?? null : null;
   const suggestions = buildSuggestions(folio);
+  const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoice(
+    (transcript) => setInput(transcript)
+  );
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -411,8 +452,16 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
               </View>
             )}
             <View style={[styles.inputWrap, { backgroundColor: T.surface, borderColor: T.hair }]}>
+              {/* Voice button */}
+              {voiceSupported ? (
+                <TouchableOpacity onPress={toggleVoice} style={styles.attachBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 2 }}>
+                  <Text style={[styles.attachIcon, { color: listening ? T.accent : T.muted }]}>
+                    {listening ? '◉' : '⊙'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               {/* Attachment button — always visible */}
-              <TouchableOpacity onPress={pickFile} style={styles.attachBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}>
+              <TouchableOpacity onPress={pickFile} style={styles.attachBtn} hitSlop={{ top: 8, bottom: 8, left: 2, right: 4 }}>
                 <Text style={[styles.attachIcon, { color: T.muted }]}>⌁</Text>
               </TouchableOpacity>
               <TextInput
