@@ -87,16 +87,38 @@ DATES: Calculate the correct day of week using today's date. Format: "Mon · Mar
 - Pure JSON only — no markdown fences`;
 }
 
+function sanitizeJSON(s: string): string {
+  // Fix the two most common LLM JSON bugs:
+  // 1. Unescaped control characters (newline, tab, CR) inside string values
+  // 2. Trailing commas before ] or }
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (esc) { out += ch; esc = false; continue; }
+    if (ch === '\\' && inStr) { out += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; out += ch; continue; }
+    if (inStr) {
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
+    }
+    out += ch;
+  }
+  // Remove trailing commas before ] or }
+  return out.replace(/,(\s*[\]}])/g, '$1');
+}
+
 function extractJSON(raw: string): unknown {
   const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   const start = stripped.indexOf('{');
   const end = stripped.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('No JSON object in response');
   const candidate = stripped.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch (e: any) {
-    throw new Error(`Malformed JSON (response may have been truncated): ${e.message}`);
+  try { return JSON.parse(candidate); } catch {}
+  try { return JSON.parse(sanitizeJSON(candidate)); } catch (e: any) {
+    throw new Error(`Malformed JSON from model: ${e.message}`);
   }
 }
 

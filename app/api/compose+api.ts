@@ -115,6 +115,25 @@ OTHER RULES:
 - Pure JSON only — no markdown fences`;
 }
 
+function sanitizeJSON(s: string): string {
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (esc) { out += ch; esc = false; continue; }
+    if (ch === '\\' && inStr) { out += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; out += ch; continue; }
+    if (inStr) {
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
+    }
+    out += ch;
+  }
+  return out.replace(/,(\s*[\]}])/g, '$1');
+}
+
 function extractJSON(raw: string): unknown {
   const stripped = raw
     .replace(/^```(?:json)?\s*/i, '')
@@ -123,10 +142,10 @@ function extractJSON(raw: string): unknown {
   const start = stripped.indexOf('{');
   const end = stripped.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('No JSON object in response');
-  try {
-    return JSON.parse(stripped.slice(start, end + 1));
-  } catch (e: any) {
-    throw new Error(`Malformed JSON (response may have been truncated): ${e.message}`);
+  const candidate = stripped.slice(start, end + 1);
+  try { return JSON.parse(candidate); } catch {}
+  try { return JSON.parse(sanitizeJSON(candidate)); } catch (e: any) {
+    throw new Error(`Malformed JSON from model: ${e.message}`);
   }
 }
 
