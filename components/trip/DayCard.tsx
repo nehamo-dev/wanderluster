@@ -46,11 +46,6 @@ export function DayCard({
                 Day {String(day.n).padStart(2, '0')} · {day.date}
               </Text>
               <Text style={[styles.dayLabel, { fontSize: expanded ? 22 : 18 }]}>{day.label}</Text>
-              {day.theme && (
-                <View style={styles.themePill}>
-                  <Text style={styles.themeText}>{day.theme}</Text>
-                </View>
-              )}
             </View>
             <View style={styles.badgeRow}>
               {confirmedCount > 0 && (
@@ -133,20 +128,6 @@ const styles = StyleSheet.create({
   dayLabel: {
     color: '#f5efe2', letterSpacing: -0.6,
     fontWeight: '400', lineHeight: 24,
-  },
-  themePill: {
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: 'rgba(245,239,226,0.12)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(245,239,226,0.22)',
-  },
-  themeText: {
-    color: '#f5efe2', fontSize: 9,
-    letterSpacing: 2, textTransform: 'uppercase',
-    fontFamily: 'monospace', opacity: 0.9,
   },
   badgeRow: { flexDirection: 'column', gap: 4, alignItems: 'flex-end' },
   eventCountBadge: {

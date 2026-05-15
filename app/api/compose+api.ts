@@ -108,7 +108,7 @@ OTHER RULES:
 - photoQuery: 2–3 word Unsplash search term for the day's visual highlight — a dish, landmark, or mood
 - tips: 1–3 insider notes per event. Empty array [] if nothing specific.
 - rating: real-world rating 0–5 for hotels, restaurants, attractions. Omit for flights/transport.
-- location: neighbourhood or address for map. Omit for flights.
+- location: full address sufficient to resolve in Google Maps — include street, neighbourhood, and city. E.g. "6th Street Entertainment District, Austin, TX" not just "6th Street". Omit for flights.
 - reason: suggested events only — one sentence why this was added. Omit for confirmed events.
 - highlights: 3–5 folio-level bullet points — timing, must-dos, budget
 - tldr: 2–3 sentences on overall rhythm and character

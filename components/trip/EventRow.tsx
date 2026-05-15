@@ -212,8 +212,9 @@ export function EventRow({
           )}
           {event.location && (
             <TouchableOpacity onPress={openMap} style={styles.mapRow} activeOpacity={0.7}>
-              <Text style={[styles.mapIcon, { color: T.muted }]}>↗</Text>
+              <Text style={[styles.mapPin, { color: T.accent }]}>⊙</Text>
               <Text style={[styles.mapText, { color: T.sub }]}>{event.location}</Text>
+              <Text style={[styles.mapArrow, { color: T.muted }]}>↗</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -326,6 +327,7 @@ const styles = StyleSheet.create({
   tipBullet: { fontSize: 16, lineHeight: 18, marginTop: -1 },
   tipText: { fontSize: 12.5, letterSpacing: -0.1, lineHeight: 18, flex: 1 },
   mapRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 2 },
-  mapIcon: { fontSize: 12 },
-  mapText: { fontSize: 12, letterSpacing: -0.1, textDecorationLine: 'underline' },
+  mapPin: { fontSize: 13, lineHeight: 16 },
+  mapText: { fontSize: 12, letterSpacing: -0.1, textDecorationLine: 'underline', flex: 1 },
+  mapArrow: { fontSize: 11, flexShrink: 0 },
 });
