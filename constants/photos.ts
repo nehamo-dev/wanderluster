@@ -1,31 +1,45 @@
-// Curated Unsplash photos per destination
-// Format: images.unsplash.com/photo-{id}?w=600&q=85&fit=crop
-const U = (id: string) => `https://images.unsplash.com/photo-${id}?w=600&q=85&fit=crop`;
+// Wikimedia Commons photos — free, CC-licensed, exact destination shots
+const W = (path: string) => `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}`;
 
 export const FOLIO_PHOTOS: Record<string, string> = {
-  tokyo:     U('1536098561742-ca998e48cbcc'), // cherry blossoms, Ueno park
-  salzburg:  U('1467269204594-9661b134dd2b'), // Salzburg old town winter
-  yosemite:  U('1759365660630-6ab3b99d9637'),   // Yosemite valley, El Capitan
-  austin:    U('1531218150217-54595bc2b934'), // Austin skyline at night
+  tokyo:    W('b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/900px-Skyscrapers_of_Shinjuku_2009_January.jpg'),
+  salzburg: W('9/91/Salzburg_%2848489551981%29.jpg/900px-Salzburg_%2848489551981%29.jpg'),
+  yosemite: W('1/13/Tunnel_View%2C_Yosemite_Valley%2C_Yosemite_NP_-_Diliff.jpg/900px-Tunnel_View%2C_Yosemite_Valley%2C_Yosemite_NP_-_Diliff.jpg'),
+  austin:   W('f/f4/Skyline_of_Austin%2C_Texas_%28cropped%29.jpg/900px-Skyline_of_Austin%2C_Texas_%28cropped%29.jpg'),
 };
 
 export const WISHLIST_PHOTOS: Record<string, string> = {
-  patagonia: U('1501854140801-50d01698950b'), // Torres del Paine peaks
-  kyoto:     U('1528360983277-13d401cdc186'), // Fushimi Inari torii gates
-  rome:      U('1552832230-c0197dd311b5'),      // Colosseum at dusk
-  marrakech: U('1580746738099-1cb74f972feb'), // Marrakech souk, baskets and spices
+  patagonia: W('c/ce/Torres_del_Paine_y_cuernos_del_Paine%2C_montaje.jpg/900px-Torres_del_Paine_y_cuernos_del_Paine%2C_montaje.jpg'),
+  kyoto:     W('3/3c/Kiyomizu.jpg/900px-Kiyomizu.jpg'),
+  rome:      W('7/7e/Trevi_Fountain%2C_Rome%2C_Italy_2_-_May_2007.jpg/900px-Trevi_Fountain%2C_Rome%2C_Italy_2_-_May_2007.jpg'),
+  marrakech: W('9/9c/Pavillon_Menarag%C3%A4rten.jpg/900px-Pavillon_Menarag%C3%A4rten.jpg'),
 };
 
-// Look up a photo by folio id first, then by destination name (lowercase)
 const ALL_PHOTOS = { ...FOLIO_PHOTOS, ...WISHLIST_PHOTOS };
 
 export function getDestinationPhoto(folioId: string, destination?: string): string | null {
   if (ALL_PHOTOS[folioId]) return ALL_PHOTOS[folioId];
   if (destination) {
-    // Match "Austin, Texas" → "austin", "New York City" → "new york" etc.
     const key = destination.toLowerCase().split(',')[0].trim();
     const match = ALL_PHOTOS[key] ?? Object.entries(ALL_PHOTOS).find(([k]) => key.startsWith(k) || k.startsWith(key))?.[1];
     if (match) return match;
   }
   return null;
+}
+
+// Fetch the Wikipedia hero image for any destination (for dynamically created trips)
+export async function fetchWikiPhoto(destination: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(destination)}&prop=pageimages&format=json&pithumbsize=900&origin=*&redirects=1`
+    );
+    const data = await res.json();
+    const pages = data?.query?.pages ?? {};
+    const page = Object.values(pages)[0] as any;
+    const src: string | undefined = page?.thumbnail?.source;
+    if (!src || src.endsWith('.svg') || src.endsWith('.PNG') || src.includes('map')) return null;
+    return src.split('?')[0]; // strip UTM params
+  } catch {
+    return null;
+  }
 }
