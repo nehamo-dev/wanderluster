@@ -148,7 +148,7 @@ export const FOLIO_LIST = Object.values(FOLIOS);
 export const WISHLIST: WishlistItem[] = [
   { id: 'patagonia', name: 'Patagonia', season: 'Nov – Mar', vibe: 'Adventure', flight: '14h', visa: 'Easy', budget: '$$$', palette: { a: '#8a9aa0', b: '#3a4248', c: '#1a1f24' } },
   { id: 'kyoto', name: 'Kyoto temples', season: 'Apr · Nov', vibe: 'Culture', flight: '11h', visa: 'Easy', budget: '$$', palette: { a: '#c4a890', b: '#8a5a44', c: '#2a1e16' } },
-  { id: 'lofoten', name: 'Lofoten', season: 'Jun · Sep', vibe: 'Adventure', flight: '13h', visa: 'Schengen', budget: '$$$', palette: { a: '#a8b8c0', b: '#3a5a6a', c: '#0f1a22' } },
+  { id: 'rome', name: 'Rome', season: 'Apr · Oct', vibe: 'Culture', flight: '10h', visa: 'Schengen', budget: '$$', palette: { a: '#c8b090', b: '#8a5a30', c: '#1a1208' } },
   { id: 'marrakech', name: 'Marrakech', season: 'Mar · Oct', vibe: 'Culture', flight: '9h', visa: 'On arrival', budget: '$$', palette: { a: '#d4956b', b: '#a8482a', c: '#2a1a14' } },
 ];
 
