@@ -1,33 +1,7 @@
 import Groq from 'groq-sdk';
+import { extractAndParseFolio } from '../../lib/parseCompose';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-const MONTHS: Record<string, number> = {
-  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
-};
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function correctDates(folio: any): any {
-  if (!Array.isArray(folio.days)) return folio;
-  const now = new Date();
-  folio.days = folio.days.map((day: any) => {
-    if (!day.date) return day;
-    const m = day.date.match(/([A-Z][a-z]{2})\s+(\d{1,2})/);
-    if (!m) return day;
-    const month = MONTHS[m[1]];
-    if (month === undefined) return day;
-    const dayNum = parseInt(m[2], 10);
-    // Pick year: if the date has already passed this year, assume next year
-    const year = new Date(now.getFullYear(), month, dayNum) < now
-      ? now.getFullYear() + 1
-      : now.getFullYear();
-    const d = new Date(year, month, dayNum);
-    const correctDay = DAYS[d.getDay()];
-    return { ...day, date: `${correctDay} · ${m[1]} ${m[2]}` };
-  });
-  return folio;
-}
 
 function buildSystem(): string {
   const today = new Date().toLocaleDateString('en-US', {
@@ -115,40 +89,6 @@ OTHER RULES:
 - Pure JSON only — no markdown fences`;
 }
 
-function sanitizeJSON(s: string): string {
-  let out = '';
-  let inStr = false;
-  let esc = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (esc) { out += ch; esc = false; continue; }
-    if (ch === '\\' && inStr) { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
-    if (inStr) {
-      if (ch === '\n') { out += '\\n'; continue; }
-      if (ch === '\r') { out += '\\r'; continue; }
-      if (ch === '\t') { out += '\\t'; continue; }
-    }
-    out += ch;
-  }
-  return out.replace(/,(\s*[\]}])/g, '$1');
-}
-
-function extractJSON(raw: string): unknown {
-  const stripped = raw
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-  const start = stripped.indexOf('{');
-  const end = stripped.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON object in response');
-  const candidate = stripped.slice(start, end + 1);
-  try { return JSON.parse(candidate); } catch {}
-  try { return JSON.parse(sanitizeJSON(candidate)); } catch (e: any) {
-    throw new Error(`Malformed JSON from model: ${e.message}`);
-  }
-}
-
 async function fetchUrl(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Wanderluster/1.0)' },
@@ -177,8 +117,8 @@ export async function POST(request: Request) {
     }
 
     const SYSTEM = buildSystem();
-    let raw: string;
 
+    // Image mode: vision model, no streaming support — return JSON directly
     if (imageData) {
       const result = await groq.chat.completions.create({
         model: 'llama-3.2-11b-vision-preview',
@@ -194,33 +134,53 @@ export async function POST(request: Request) {
           ] as any,
         }],
       });
-      raw = result.choices[0]?.message?.content ?? '{}';
-    } else {
-      let content = input.trim();
-      if (mode === 'link') {
-        try {
-          content = await fetchUrl(input.trim());
-        } catch {
-          return Response.json(
-            { error: 'Could not fetch that URL. Try describing the trip in words instead.' },
-            { status: 422 }
-          );
-        }
-      }
-
-      const result = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 8000,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content },
-        ],
-      });
-      raw = result.choices[0]?.message?.content ?? '{}';
+      const raw = result.choices[0]?.message?.content ?? '{}';
+      const folio = extractAndParseFolio(raw);
+      return Response.json({ folio });
     }
 
-    const folio = correctDates(extractJSON(raw));
-    return Response.json({ folio });
+    // Text / link mode: stream so the connection stays alive
+    let content = input.trim();
+    if (mode === 'link') {
+      try { content = await fetchUrl(input.trim()); }
+      catch {
+        return Response.json(
+          { error: 'Could not fetch that URL. Try describing the trip in words instead.' },
+          { status: 422 }
+        );
+      }
+    }
+
+    const stream = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 8000,
+      stream: true,
+      messages: [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content },
+      ],
+    });
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content;
+            if (text) controller.enqueue(new TextEncoder().encode(text));
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (err: any) {
     const detail = err?.message ?? String(err);
     console.error('[compose api]', detail);

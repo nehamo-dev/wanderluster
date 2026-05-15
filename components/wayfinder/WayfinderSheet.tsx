@@ -10,6 +10,8 @@ import { router } from 'expo-router';
 import { FOLIOS, WAYFINDER_GREETINGS } from '../../data/mock';
 import { generateTripPalette } from '../../constants/theme';
 import { useFolios } from '../../lib/folios-context';
+import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
+import { FilmGrain } from '../art/FilmGrain';
 
 type ComposeMode = 'screenshots' | 'words' | 'link' | null;
 
@@ -138,11 +140,13 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
   const [fileName, setFileName] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [activeMode, setActiveMode] = useState<ComposeMode>(null);
   const slideAnim = useRef(new Animated.Value(1)).current;
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   const folio = folioId ? FOLIOS[folioId] ?? null : null;
+  const effectiveMode = activeMode ?? composeMode ?? null;
   const suggestions = buildSuggestions(folio);
   const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoice(
     (transcript) => setInput(transcript)
@@ -157,6 +161,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
   }, [open]);
 
   useEffect(() => {
+    setActiveMode(null);
     setMessages(seedMessages(folioId, composeMode));
     setComposed(false);
     setFileName(null);
@@ -198,6 +203,20 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
     el.click();
   }
 
+  function activateMode(mode: ComposeMode) {
+    setActiveMode(mode);
+    if (mode) {
+      setMessages([{ id: 'seed', role: 'wayfinder', text: COMPOSE_INTROS[mode] }]);
+      if (mode === 'link') setInput('https://');
+      setTimeout(() => inputRef.current?.focus(), 150);
+    }
+  }
+
+  function activateTalk() {
+    setMessages([{ id: 'seed', role: 'wayfinder', text: "What are you thinking? A destination, a vibe, a rough idea — I'll help shape it into a trip." }]);
+    setTimeout(() => inputRef.current?.focus(), 150);
+  }
+
   async function sendCompose(text: string) {
     const hasImage = !!imageData;
     if (!text.trim() && !hasImage) return;
@@ -221,29 +240,51 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: composeMode ?? 'words',
+          mode: effectiveMode ?? 'words',
           input: text,
           imageData: capturedImage ?? undefined,
         }),
       });
 
-      let data: any;
-      try {
-        data = await res.json();
-      } catch {
-        console.error('[compose] non-JSON response, status:', res.status);
-        throw new Error(`API returned ${res.status}`);
+      if (!res.ok) {
+        let errMsg = `API returned ${res.status}`;
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        console.error('[compose] error:', errMsg);
+        setThinking(false);
+        setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: errMsg }]);
+        return;
+      }
+
+      // Response is a streamed text/plain JSON — accumulate then parse
+      let rawText = '';
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        while (!done) {
+          const { value, done: d } = await reader.read();
+          done = d;
+          if (value) rawText += decoder.decode(value, { stream: true });
+        }
+      } else {
+        // Fallback: legacy JSON response (image mode)
+        const d = await res.clone().json().catch(() => ({}));
+        if (d.folio) rawText = JSON.stringify(d.folio);
       }
 
       setThinking(false);
 
-      if (!res.ok || data.error) {
-        console.error('[compose] api error:', data.error, res.status);
-        setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: data.error ?? 'Something went wrong. Try again.' }]);
-        return;
+      let raw: any;
+      try {
+        const parsed = JSON.parse(rawText);
+        raw = correctDates(parsed.folio ?? parsed);
+      } catch {
+        try { raw = extractAndParseFolio(rawText); } catch (e: any) {
+          console.error('[compose] parse error:', e.message);
+          setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: 'Had trouble reading the itinerary. Try again.' }]);
+          return;
+        }
       }
-
-      const raw = data.folio;
       const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
       const id = addFolio({
         ...raw,
@@ -324,11 +365,22 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         }
       }
 
-      // Auto-compose if Wayfinder included the trigger
+      // Auto-compose trigger: either the model outputs [COMPOSE:...], or the user
+      // has answered the questions (2nd user message with no folio loaded).
       const composeMatch = fullText.match(/\[COMPOSE:\s*([\s\S]+?)\]/);
       if (composeMatch) {
         const brief = composeMatch[1].trim();
         setTimeout(() => autoCompose(brief), 400);
+      } else if (!folio && !effectiveMode) {
+        const allMessages = [...messages, userMsg];
+        const userTurns = allMessages.filter(m => m.role === 'user').length;
+        if (userTurns >= 2) {
+          const conversationBrief = allMessages
+            .filter(m => m.id !== 'seed' && m.text)
+            .map(m => `${m.role === 'user' ? 'User' : 'Wayfinder'}: ${m.text}`)
+            .join('\n');
+          setTimeout(() => autoCompose(conversationBrief), 400);
+        }
       }
     } catch (err) {
       console.error('[sendChat]', err);
@@ -352,14 +404,34 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'words', input: brief }),
       });
-      let data: any;
-      try { data = await res.json(); } catch {
-        throw new Error(`API returned ${res.status}`);
+      if (!res.ok) {
+        let errMsg = `API returned ${res.status}`;
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        throw new Error(errMsg);
       }
-      setThinking(false);
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Compose failed');
 
-      const raw = data.folio;
+      // Streamed text/plain JSON — accumulate then parse
+      let rawText = '';
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        while (!done) {
+          const { value, done: d } = await reader.read();
+          done = d;
+          if (value) rawText += decoder.decode(value, { stream: true });
+        }
+      }
+
+      setThinking(false);
+
+      let raw: any;
+      try {
+        const parsed = JSON.parse(rawText);
+        raw = correctDates(parsed.folio ?? parsed);
+      } catch {
+        raw = extractAndParseFolio(rawText);
+      }
       const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
       const id = addFolio({
         ...raw, palette,
@@ -391,7 +463,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
   function send(override?: string) {
     const text = (override ?? input).trim();
     if (!text && !imageData) return;
-    if (composeMode && !composed) {
+    if (effectiveMode && !composed) {
       sendCompose(text);
     } else {
       sendChat(text);
@@ -402,14 +474,16 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
     inputRange: [0, 1], outputRange: ['0%' as any, '100%' as any],
   });
 
-  const isComposeFirst = composeMode && !composed;
+  const isComposeFirst = !!effectiveMode && !composed;
   const placeholder =
-    composeMode === 'link' ? 'Paste a URL'
-      : composeMode === 'words' ? 'Where to, and how should it feel?'
-        : composeMode === 'screenshots' ? 'Or describe your trip in words…'
-          : 'Ask anything about your trip…';
+    effectiveMode === 'link' ? 'Paste a URL'
+      : effectiveMode === 'words' ? 'Where to, and how should it feel?'
+        : effectiveMode === 'screenshots' ? 'Or describe your trip in words…'
+          : !folio ? 'Or type a trip idea here…'
+            : 'Ask anything about your trip…';
 
-  const showSuggestions = !composeMode && messages.length === 0 && !thinking;
+  const showCreateOptions = !folio && !effectiveMode && messages.length === 0 && !thinking;
+  const showFolioSuggestions = !!folio && messages.length === 0 && !thinking;
 
   return (
     <>
@@ -428,11 +502,13 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <WayfinderIcon size={36} accent={T.accent} bg={T.bg} />
+              <View style={[styles.wIcon, { backgroundColor: T.accent }]}>
+                <Text style={[styles.wIconText, { color: T.bg }]}>W</Text>
+              </View>
               <View>
                 <Text style={[styles.headerName, { color: T.ink }]}>Wayfinder</Text>
                 <Text style={[styles.headerSub, { color: T.muted }]}>
-                  {composeMode ? 'New folio' : 'Your concierge'}
+                  {effectiveMode ? 'New folio' : 'Your concierge'}
                 </Text>
               </View>
             </View>
@@ -459,11 +535,55 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
               </View>
             )}
 
-            {/* Inline suggestions — shown instead of a blank state */}
-            {showSuggestions && (
+            {/* Create options — shown when opening from the add tile */}
+            {showCreateOptions && (
+              <View style={styles.createOptions}>
+                {/* Hero card */}
+                <View style={styles.heroCard}>
+                  <LinearGradient
+                    colors={[T.accent, T.ink]}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <View style={[styles.heroGlow, { backgroundColor: T.accent }]} />
+                  <FilmGrain seed={7} opacity={0.18} />
+                  <View style={styles.heroContent}>
+                    <Text style={styles.heroEyebrow}>A blank folio</Text>
+                    <Text style={styles.heroHeadline}>Anywhere{'\n'}you like.</Text>
+                  </View>
+                </View>
+                <Text style={[styles.createOptionsLabel, { color: T.muted }]}>Start with</Text>
+                {([
+                  { key: 'screenshots', icon: '⬆', title: 'Screenshots & files', sub: 'Photos, PDFs, confirmation emails', onPress: () => activateMode('screenshots') },
+                  { key: 'words', icon: '✎', title: 'Describe in words', sub: 'Where, when, and how it should feel', onPress: () => activateMode('words') },
+                  { key: 'link', icon: '⌁', title: 'Paste a link', sub: 'Airbnb, articles, Google Docs', onPress: () => activateMode('link') },
+                  { key: 'talk', icon: '◎', title: 'Talk to me', sub: 'Just say what\'s on your mind', onPress: activateTalk },
+                ]).map((opt, i, arr) => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    onPress={opt.onPress}
+                    style={[styles.createOptionRow, { borderBottomColor: T.hair, borderBottomWidth: i < arr.length - 1 ? 0.5 : 0 }]}
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.createOptionIcon, { backgroundColor: T.surface, borderColor: T.hair }]}>
+                      <Text style={[styles.createOptionIconText, { color: T.ink }]}>{opt.icon}</Text>
+                    </View>
+                    <View style={styles.createOptionText}>
+                      <Text style={[styles.createOptionTitle, { color: T.ink }]}>{opt.title}</Text>
+                      <Text style={[styles.createOptionSub, { color: T.muted }]}>{opt.sub}</Text>
+                    </View>
+                    <Text style={[styles.createOptionArrow, { color: T.muted }]}>›</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Folio-specific suggestions */}
+            {showFolioSuggestions && (
               <View style={styles.suggestionsList}>
                 <Text style={[styles.suggestionsLabel, { color: T.muted }]}>
-                  {folio ? `About your ${folio.destination} trip` : 'Where do you want to go?'}
+                  {`About your ${folio!.destination} trip`}
                 </Text>
                 {suggestions.map((s, i) => (
                   <TouchableOpacity
@@ -494,7 +614,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           )}
 
           {/* File upload strip (screenshots compose mode only) */}
-          {isComposeFirst && composeMode === 'screenshots' && !imagePreview && (
+          {isComposeFirst && effectiveMode === 'screenshots' && !imagePreview && (
             <TouchableOpacity
               onPress={pickFile}
               style={[styles.uploadStrip, { backgroundColor: T.surface, borderColor: T.hair }]}
@@ -545,8 +665,8 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
                 style={[styles.input, { color: T.ink }]}
                 returnKeyType="send"
                 blurOnSubmit={false}
-                multiline={composeMode === 'words'}
-                numberOfLines={composeMode === 'words' ? 3 : 1}
+                multiline={effectiveMode === 'words'}
+                numberOfLines={effectiveMode === 'words' ? 3 : 1}
               />
               <TouchableOpacity
                 onPress={() => send()}
@@ -624,6 +744,56 @@ const styles = StyleSheet.create({
   thinkingBubble: { borderRadius: 18, borderWidth: 0.5, paddingHorizontal: 16, paddingVertical: 14 },
   dotsRow: { flexDirection: 'row', gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
+
+  // W icon (header)
+  wIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  wIconText: { fontSize: 15, fontWeight: '600', letterSpacing: -0.3 },
+
+  // Hero card
+  heroCard: {
+    height: 190, borderRadius: 16, overflow: 'hidden',
+    marginBottom: 28, position: 'relative',
+  },
+  heroGlow: {
+    position: 'absolute', top: '-30%', left: '-15%',
+    width: '65%', height: '90%', borderRadius: 999, opacity: 0.3,
+  },
+  heroContent: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    padding: 20, justifyContent: 'space-between',
+  },
+  heroEyebrow: {
+    color: '#f5efe2', fontSize: 9, letterSpacing: 3.5,
+    textTransform: 'uppercase', fontFamily: 'monospace', opacity: 0.8,
+  },
+  heroHeadline: {
+    color: '#f5efe2', fontSize: 38, letterSpacing: -1.4,
+    lineHeight: 40, fontWeight: '300',
+  },
+
+  // Create options (empty state when opening from add tile)
+  createOptions: { marginTop: 8 },
+  createOptionsLabel: {
+    fontSize: 10, letterSpacing: 3, textTransform: 'uppercase',
+    fontFamily: 'monospace', marginBottom: 14, color: 'transparent',
+  },
+  createOptionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14,
+  },
+  createOptionIcon: {
+    width: 40, height: 40, borderRadius: 10, borderWidth: 0.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  createOptionIconText: { fontSize: 18 },
+  createOptionText: { flex: 1 },
+  createOptionTitle: { fontSize: 14.5, letterSpacing: -0.2, fontWeight: '500' },
+  createOptionSub: { fontSize: 12, marginTop: 2, letterSpacing: -0.1 },
+  createOptionArrow: { fontSize: 20 },
+  createOptionsOr: {
+    fontSize: 11, letterSpacing: 0.3, textAlign: 'center',
+    marginTop: 22, marginBottom: 4, fontFamily: 'monospace',
+    textTransform: 'uppercase',
+  },
 
   // Suggestions list
   suggestionsList: { marginTop: 8, gap: 0 },

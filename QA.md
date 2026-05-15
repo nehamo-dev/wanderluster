@@ -44,23 +44,31 @@ Regression: demo button disappeared when `__DEV__` gating was used.
 
 ## 4. Home screen
 
-- [ ] "FOLIOS · READY TO START" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
+- [ ] "YOUR PLANS" section shows AddTile ("A Blank Folio · Throw it at me")
 - [ ] "ON YOUR WISHLIST" section shows 4 tiles (Patagonia, Kyoto, Rome, Marrakech)
+- [ ] "INSPIRATION" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
+- [ ] "PAST TRIPS" section shows 3 tiles (Rome, Kyoto, Lisbon) with past dates
 - [ ] Tapping a folio tile navigates to the trip detail screen
 - [ ] Wayfinder dock (bottom) is visible
-- [ ] "Throw it at me" create section is visible
 
 ---
 
-## 5. Wayfinder — new trip flow
+## 5. Wayfinder — create options & new trip flow
 
-Regression: Wayfinder chatted indefinitely without creating a folio; compose mode bypassed conversation.
+Regression: Wayfinder chatted indefinitely without creating a folio; model ignored [COMPOSE:] trigger.
+Fix: client now auto-composes after 2nd user message in no-folio chat mode (model output no longer required).
 
-- [ ] Opening Wayfinder with no folio shows suggestion list
-- [ ] Typing a trip idea (e.g. "I want to go to Lisbon") → Wayfinder asks exactly 3 questions in one message
-- [ ] Answering the questions → Wayfinder confirms and shows "Building your folio now…"
+- [ ] Opening Wayfinder from AddTile shows create options panel (not generic suggestions)
+- [ ] Header shows "W" circle icon and "YOUR CONCIERGE" subtitle
+- [ ] Hero card shows gradient with "A BLANK FOLIO" + "Anywhere you like."
+- [ ] 4 rows visible: Screenshots & files, Describe in words, Paste a link, Talk to me
+- [ ] Tapping "Describe in words" → seed message appears, header switches to "NEW FOLIO"
+- [ ] Tapping "Talk to me" → conversational seed message appears, no compose mode set
+- [ ] Tapping "Screenshots & files" → upload strip appears above input bar
+- [ ] Typing a trip idea directly in input and sending → chat flow starts
+- [ ] After 2nd user message in chat mode → "Building your folio now…" appears automatically
 - [ ] Folio is created and app navigates to the trip detail screen automatically
-- [ ] `[COMPOSE: ...]` tag is NOT visible in the chat — stripped from display
+- [ ] `[COMPOSE: ...]` tag is NOT visible in the chat — stripped from display if model outputs it
 
 ---
 
@@ -94,6 +102,7 @@ Regression: AI returns malformed JSON (unescaped newlines/quotes, trailing comma
 - [ ] Sanitizer handles unescaped newlines in string values
 - [ ] Sanitizer handles trailing commas before `]` or `}`
 - [ ] `max_tokens` is 8000 in both `api/compose.ts` and `app/api/compose+api.ts`
+- [ ] Both compose endpoints stream the response (`stream: true` in Groq call, `Content-Type: text/plain` in response)
 
 ---
 
@@ -138,3 +147,9 @@ Add every bug reported by the user here so it gets a regression test.
 | 8 | Day-of-week wrong (AI was guessing) | § 8 day card dates |
 | 9 | AI hallucinating confirmed events | § 8 suggested badge |
 | 10 | Map link unresolvable (no city in address) | § 8 map address |
+| 11 | Destination images missing again (tiles gray) | § 2 photo checks |
+| 12 | Wayfinder never triggers folio creation (model ignores `[COMPOSE:]`) | § 5 new trip flow |
+| 13 | Vercel compose returns 500 / timeout (edge function waited on full Groq response) | § 6 API, EVAL § 6 Test M |
+| 14 | AI invents confirmed hotels/restaurants (`suggested: false`) user didn't provide | EVAL.md § 1 Tests A–D |
+| 15 | Vercel compose returns 500 / timeout (edge function waited on full Groq response) | § 6 API, EVAL § 6 Test M |
+| 16 | Wayfinder create screen showed generic suggestions instead of input options | § 5 create options checks |

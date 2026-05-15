@@ -6,6 +6,8 @@ export const FOLIO_PHOTOS: Record<string, string> = {
   salzburg: W('9/91/Salzburg_%2848489551981%29.jpg/960px-Salzburg_%2848489551981%29.jpg'),
   yosemite: W('1/13/Tunnel_View%2C_Yosemite_Valley%2C_Yosemite_NP_-_Diliff.jpg/960px-Tunnel_View%2C_Yosemite_Valley%2C_Yosemite_NP_-_Diliff.jpg'),
   austin:   W('f/f4/Skyline_of_Austin%2C_Texas_%28cropped%29.jpg/960px-Skyline_of_Austin%2C_Texas_%28cropped%29.jpg'),
+  lisbon:   W('4/4d/Lisboa_April_2009-11.jpg/960px-Lisboa_April_2009-11.jpg'),
+  amsterdam: W('a/a9/Amsterdam_-_Jordaan.jpg/960px-Amsterdam_-_Jordaan.jpg'),
 };
 
 export const WISHLIST_PHOTOS: Record<string, string> = {

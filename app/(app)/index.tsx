@@ -1,15 +1,15 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { DEFAULT_PALETTE as T } from '../../constants/theme';
-import { FOLIO_LIST, WISHLIST } from '../../data/mock';
+import { FOLIO_LIST, WISHLIST, PAST_TRIPS } from '../../data/mock';
 import { FolioTile } from '../../components/home/FolioTile';
 import { WishlistTile } from '../../components/home/WishlistTile';
-import { CreateYourOwnCard } from '../../components/home/CreateYourOwnCard';
+import { AddTile } from '../../components/home/AddTile';
 import { useWayfinder } from '../../lib/wayfinder-context';
 import { useFolios } from '../../lib/folios-context';
 
@@ -21,8 +21,10 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
 
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const { openCompose } = useWayfinder();
+  const { openWayfinder } = useWayfinder();
   const { planned } = useFolios();
+
+  const hasWishlist = WISHLIST.length > 0;
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
@@ -46,57 +48,62 @@ export default function HomeScreen() {
           {/* Greeting */}
           <View style={styles.greeting}>
             <SmallCaps>{today}</SmallCaps>
-            <Text style={[styles.greetingTitle, { color: T.ink }]}>
-              Good morning, Maya.
-            </Text>
+            <Text style={[styles.greetingTitle, { color: T.ink }]}>Good morning, Maya.</Text>
             <Text style={[styles.greetingSub, { color: T.muted }]}>Where to next?</Text>
           </View>
 
           <View style={[styles.hairline, { backgroundColor: T.hair }]} />
 
-          {/* Planned trips */}
-          {planned.length > 0 && (
+          {/* ── YOUR PLANS ── */}
+          <View style={styles.sectionHeader}>
+            <SmallCaps>Your plans</SmallCaps>
+            {planned.length > 0 && (
+              <SmallCaps style={{ fontSize: 9 }}>{String(planned.length)}</SmallCaps>
+            )}
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {planned.map(folio => (
+              <FolioTile
+                key={folio.id}
+                folio={folio}
+                theme={T}
+                onOpen={() => router.push({ pathname: '/(app)/trip/[id]', params: { id: folio.id } })}
+              />
+            ))}
+            <AddTile theme={T} onPress={() => openWayfinder()} />
+          </ScrollView>
+
+          <View style={[styles.hairline, { backgroundColor: T.hair, marginTop: 8 }]} />
+
+          {/* ── WISHLIST (shown first if non-empty) ── */}
+          {hasWishlist && (
             <>
-              <View style={styles.sectionHeader}>
-                <SmallCaps>Your plans</SmallCaps>
-                <SmallCaps style={{ fontSize: 9 }}>{String(planned.length)}</SmallCaps>
+              <View style={[styles.sectionHeader, { paddingTop: 32 }]}>
+                <SmallCaps>On your wishlist</SmallCaps>
               </View>
               <ScrollView
-                horizontal showsHorizontalScrollIndicator={false}
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.hScroll}
               >
-                {planned.map(folio => (
-                  <FolioTile
-                    key={folio.id}
-                    folio={folio}
-                    theme={T}
-                    onOpen={() => router.push({ pathname: '/(app)/trip/[id]', params: { id: folio.id } })}
-                  />
+                {WISHLIST.map(item => (
+                  <WishlistTile key={item.id} item={item} theme={T} />
                 ))}
               </ScrollView>
-              <View style={[styles.hairline, { backgroundColor: T.hair, marginTop: 8 }]} />
             </>
           )}
 
-          {/* Create your own */}
-          <View style={styles.sectionHeader}>
-            <SmallCaps>Create your own</SmallCaps>
-            <SmallCaps style={{ fontSize: 9 }}>Wayfinder organises</SmallCaps>
-          </View>
-          <View style={styles.px}>
-            <CreateYourOwnCard
-              theme={T}
-              onCreate={openCompose}
-            />
-          </View>
-
-          {/* Folios */}
-          <View style={[styles.sectionHeader, { paddingTop: 40 }]}>
-            <SmallCaps>Folios · ready to start</SmallCaps>
-            <SmallCaps style={{ fontSize: 9 }}>Three</SmallCaps>
+          {/* ── INSPIRATION ── */}
+          <View style={[styles.sectionHeader, { paddingTop: 32 }]}>
+            <SmallCaps>Inspiration</SmallCaps>
           </View>
           <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
+            horizontal
+            showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hScroll}
           >
             {FOLIO_LIST.map(folio => (
@@ -109,19 +116,35 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
 
-          {/* Wishlist */}
+          {/* ── WISHLIST (shown below inspiration when empty) ── */}
+          {!hasWishlist && (
+            <>
+              <View style={[styles.sectionHeader, { paddingTop: 32 }]}>
+                <SmallCaps>On your wishlist</SmallCaps>
+              </View>
+              <View style={[styles.emptyWishlist, { borderColor: T.hair }]}>
+                <Text style={[styles.emptyText, { color: T.muted }]}>No destinations saved yet.</Text>
+              </View>
+            </>
+          )}
+
+          {/* ── PAST TRIPS ── */}
+          <View style={[styles.hairline, { backgroundColor: T.hair, marginTop: 8 }]} />
           <View style={[styles.sectionHeader, { paddingTop: 32 }]}>
-            <SmallCaps>On your wishlist</SmallCaps>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: T.sub }]}>See all</Text>
-            </TouchableOpacity>
+            <SmallCaps>Past trips</SmallCaps>
           </View>
           <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
+            horizontal
+            showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hScroll}
           >
-            {WISHLIST.map(item => (
-              <WishlistTile key={item.id} item={item} theme={T} />
+            {PAST_TRIPS.map(folio => (
+              <FolioTile
+                key={folio.id}
+                folio={folio}
+                theme={T}
+                onOpen={() => {}}
+              />
             ))}
           </ScrollView>
 
@@ -141,8 +164,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 160 },
   topBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, paddingTop: 56,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 56,
   },
   wordmark: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoOrb: { width: 22, height: 22, borderRadius: 11 },
@@ -157,19 +183,34 @@ const styles = StyleSheet.create({
   greetingSub: { fontSize: 32, lineHeight: 35, letterSpacing: -1.1, fontWeight: '400', marginTop: 4 },
   hairline: { height: 0.5, marginHorizontal: 24 },
   sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
-    paddingHorizontal: 24, paddingTop: 28, paddingBottom: 18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 18,
   },
   smallCaps: {
-    fontFamily: 'monospace', fontSize: 10,
-    letterSpacing: 3.5, textTransform: 'uppercase',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 3.5,
+    textTransform: 'uppercase',
   },
-  seeAll: { fontSize: 12 },
-  px: { paddingHorizontal: 16 },
   hScroll: { paddingHorizontal: 24, gap: 12, paddingBottom: 8 },
+  emptyWishlist: {
+    marginHorizontal: 24,
+    borderWidth: 0.5,
+    borderRadius: 12,
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptyText: { fontSize: 13, letterSpacing: -0.1 },
   footer: { padding: 24, paddingTop: 32, alignItems: 'center', gap: 24 },
   footerText: {
-    fontFamily: 'monospace', fontSize: 9,
-    letterSpacing: 3.5, textTransform: 'uppercase', paddingVertical: 24,
+    fontFamily: 'monospace',
+    fontSize: 9,
+    letterSpacing: 3.5,
+    textTransform: 'uppercase',
+    paddingVertical: 24,
   },
 });
