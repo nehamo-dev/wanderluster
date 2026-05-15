@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, Image,
   StyleSheet,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { DEFAULT_PALETTE as T } from '../../../constants/theme';
 import { FOLIOS, WAYFINDER_GREETINGS } from '../../../data/mock';
+import { getDestinationPhoto } from '../../../constants/photos';
 import { DestinationArt } from '../../../components/art/DestinationArt';
 import { DayCard } from '../../../components/trip/DayCard';
+import type { TripDay, TripEvent } from '../../../types';
 
 function SmallCaps({ children, color, size = 10 }: { children: string; color: string; size?: number }) {
   return (
@@ -22,26 +25,101 @@ export default function TripScreen() {
 
   const [activeDay, setActiveDay] = useState(1);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1, 2]));
+  const [days, setDays] = useState<TripDay[]>(() => folio?.days ?? []);
+  const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
 
   if (!folio) {
     router.back();
     return null;
   }
 
-  const toggleDay = (n: number) => {
-    setExpandedDays(prev => {
-      const next = new Set(prev);
-      next.has(n) ? next.delete(n) : next.add(n);
-      return next;
-    });
-  };
+  const heroPhoto = getDestinationPhoto(folio.id, folio.destination);
+
+  function confirmEvent(dayN: number, eventIdx: number) {
+    setDays(prev => prev.map(d => {
+      if (d.n !== dayN) return d;
+      return {
+        ...d,
+        events: d.events.map((e, i) =>
+          i === eventIdx ? { ...e, suggested: false, confirmed: true } : e
+        ),
+      };
+    }));
+  }
+
+  async function removeEvent(dayN: number, eventIdx: number) {
+    const day = days.find(d => d.n === dayN);
+    if (!day) return;
+    const removedEvent = day.events[eventIdx];
+
+    const key = `${dayN}-${eventIdx}`;
+
+    setDays(prev => prev.map(d => {
+      if (d.n !== dayN) return d;
+      const next = [...d.events];
+      next[eventIdx] = { ...removedEvent, title: '__loading__', suggested: true };
+      return { ...d, events: next };
+    }));
+    setLoadingAlt(prev => ({ ...prev, [key]: true }));
+
+    try {
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: folio.destination,
+          country: folio.country,
+          dayLabel: day.label,
+          dayDate: day.date,
+          removedEvent: { kind: removedEvent.kind, title: removedEvent.title, time: removedEvent.time },
+          existingEvents: day.events.filter((_, i) => i !== eventIdx).map(e => ({
+            kind: e.kind, title: e.title, time: e.time,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      const alt: TripEvent = data.event ?? {
+        kind: removedEvent.kind, time: removedEvent.time,
+        title: 'Alternative suggestion', meta: '', confirmed: false, suggested: true,
+      };
+
+      setDays(prev => prev.map(d => {
+        if (d.n !== dayN) return d;
+        const next = [...d.events];
+        next[eventIdx] = { ...alt, suggested: true, confirmed: false };
+        return { ...d, events: next };
+      }));
+    } catch {
+      setDays(prev => prev.map(d => {
+        if (d.n !== dayN) return d;
+        return { ...d, events: d.events.filter((_, i) => i !== eventIdx) };
+      }));
+    } finally {
+      setLoadingAlt(prev => { const n = { ...prev }; delete n[key]; return n; });
+    }
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Hero */}
         <View style={{ position: 'relative' }}>
-          <DestinationArt folio={folio} height={420} />
+          {heroPhoto ? (
+            <View style={{ height: 420 }}>
+              <Image
+                source={{ uri: heroPhoto }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.55)']}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          ) : (
+            <DestinationArt folio={folio} height={420} />
+          )}
 
           {/* Nav overlay */}
           <SafeAreaView edges={['top']} style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -86,6 +164,28 @@ export default function TripScreen() {
           </View>
         </View>
 
+        {/* TLDR + Highlights */}
+        {(folio.tldr || (folio.highlights && folio.highlights.length > 0)) && (
+          <View style={styles.px}>
+            <View style={[styles.tldrCard, { backgroundColor: T.surface, borderColor: T.hair }]}>
+              <SmallCaps color={T.muted} size={9}>Trip Overview</SmallCaps>
+              {folio.tldr && (
+                <Text style={[styles.tldrText, { color: T.ink }]}>{folio.tldr}</Text>
+              )}
+              {folio.highlights && folio.highlights.length > 0 && (
+                <View style={styles.highlights}>
+                  {folio.highlights.map((h, i) => (
+                    <View key={i} style={styles.highlightRow}>
+                      <Text style={[styles.highlightBullet, { color: T.accent }]}>·</Text>
+                      <Text style={[styles.highlightText, { color: T.sub }]}>{h}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Day strip */}
         <View style={styles.dayStripSection}>
           <View style={styles.sectionHeader}>
@@ -118,7 +218,7 @@ export default function TripScreen() {
 
         {/* Day cards */}
         <View style={[styles.px, styles.dayCards]}>
-          {folio.days.map((day, idx) => (
+          {days.map((day, idx) => (
             <DayCard
               key={day.n}
               day={day}
@@ -126,15 +226,20 @@ export default function TripScreen() {
               theme={T}
               idx={idx}
               defaultExpanded={expandedDays.has(day.n)}
-              onAskWayfinder={(q) => {
-                // Wayfinder dock will handle this via the layout's state
-              }}
+              onAskWayfinder={() => {}}
+              onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
+              onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
+              loadingEventIdx={
+                Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))
+                  ? parseInt(Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))![0].split('-')[1])
+                  : null
+              }
             />
           ))}
         </View>
 
         {/* Documents */}
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
           <SmallCaps color={T.muted}>Documents</SmallCaps>
           <TouchableOpacity>
             <Text style={[styles.uploadLink, { color: T.sub }]}>+ Upload</Text>
@@ -223,6 +328,15 @@ const styles = StyleSheet.create({
   wfNoteAvatarText: { fontSize: 11, fontWeight: '500' },
   wfNoteBody: { flex: 1, gap: 4 },
   wfNoteText: { fontSize: 13.5, lineHeight: 20, letterSpacing: -0.15 },
+  tldrCard: {
+    borderRadius: 12, borderWidth: 0.5,
+    padding: 16, marginTop: 14, gap: 10,
+  },
+  tldrText: { fontSize: 13.5, lineHeight: 21, letterSpacing: -0.15, marginTop: 6 },
+  highlights: { gap: 6, marginTop: 2 },
+  highlightRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  highlightBullet: { fontSize: 16, lineHeight: 18, marginTop: -1 },
+  highlightText: { fontSize: 12.5, letterSpacing: -0.1, lineHeight: 18, flex: 1 },
   dayStripSection: { paddingTop: 24 },
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',

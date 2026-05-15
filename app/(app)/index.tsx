@@ -10,6 +10,8 @@ import { FOLIO_LIST, WISHLIST } from '../../data/mock';
 import { FolioTile } from '../../components/home/FolioTile';
 import { WishlistTile } from '../../components/home/WishlistTile';
 import { CreateYourOwnCard } from '../../components/home/CreateYourOwnCard';
+import { useWayfinder } from '../../lib/wayfinder-context';
+import { useFolios } from '../../lib/folios-context';
 
 function SmallCaps({ children, style }: { children: string; style?: object }) {
   return (
@@ -19,6 +21,8 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
 
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const { openCompose } = useWayfinder();
+  const { planned } = useFolios();
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
@@ -50,6 +54,30 @@ export default function HomeScreen() {
 
           <View style={[styles.hairline, { backgroundColor: T.hair }]} />
 
+          {/* Planned trips */}
+          {planned.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <SmallCaps>Your plans</SmallCaps>
+                <SmallCaps style={{ fontSize: 9 }}>{String(planned.length)}</SmallCaps>
+              </View>
+              <ScrollView
+                horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hScroll}
+              >
+                {planned.map(folio => (
+                  <FolioTile
+                    key={folio.id}
+                    folio={folio}
+                    theme={T}
+                    onOpen={() => router.push({ pathname: '/(app)/trip/[id]', params: { id: folio.id } })}
+                  />
+                ))}
+              </ScrollView>
+              <View style={[styles.hairline, { backgroundColor: T.hair, marginTop: 8 }]} />
+            </>
+          )}
+
           {/* Create your own */}
           <View style={styles.sectionHeader}>
             <SmallCaps>Create your own</SmallCaps>
@@ -58,10 +86,7 @@ export default function HomeScreen() {
           <View style={styles.px}>
             <CreateYourOwnCard
               theme={T}
-              onCreate={(kind) => {
-                // Wayfinder compose — handled by the parent layout via event
-                // For now, navigate to trigger it
-              }}
+              onCreate={openCompose}
             />
           </View>
 

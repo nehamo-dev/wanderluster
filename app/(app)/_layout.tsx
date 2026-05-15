@@ -4,66 +4,75 @@ import { View, StyleSheet } from 'react-native';
 import { WayfinderDock } from '../../components/wayfinder/WayfinderDock';
 import { WayfinderSheet } from '../../components/wayfinder/WayfinderSheet';
 import { DEFAULT_PALETTE } from '../../constants/theme';
+import { WayfinderContext } from '../../lib/wayfinder-context';
+import { FoliosProvider } from '../../lib/folios-context';
 
 const T = DEFAULT_PALETTE;
+
+type ComposeMode = 'screenshots' | 'words' | 'link';
 
 export default function AppLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [folioId, setFolioId] = useState<string | undefined>();
-  const [composeMode, setComposeMode] = useState<'screenshots' | 'words' | 'link' | null>(null);
+  const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
   const [seedQ, setSeedQ] = useState('');
 
-  function openWayfinder(q?: string, folio?: string) {
+  function openWayfinder(q?: string) {
     if (q) setSeedQ(q);
-    if (folio) setFolioId(folio);
     setComposeMode(null);
     setSheetOpen(true);
   }
 
-  function openCompose(kind: 'screenshots' | 'words' | 'link', folio?: string) {
-    if (folio) setFolioId(folio);
+  function openCompose(kind: ComposeMode) {
     setComposeMode(kind);
     setSeedQ('');
+    setFolioId(undefined);
     setSheetOpen(true);
   }
 
+  function handleClose() {
+    setSheetOpen(false);
+    setComposeMode(null);
+    setSeedQ('');
+  }
+
   return (
-    <View style={styles.root}>
-      <Stack
-        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-        screenListeners={{
-          state: (e) => {
-            // track which folio screen is active so Wayfinder has context
-            const routes = (e.data as any)?.state?.routes ?? [];
-            const current = routes[routes.length - 1];
-            if (current?.name === 'trip/[id]') {
-              setFolioId(current.params?.id);
-            } else {
-              setFolioId(undefined);
-            }
-          },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="trip/[id]" />
-      </Stack>
+    <FoliosProvider>
+    <WayfinderContext.Provider value={{ openCompose, openWayfinder }}>
+      <View style={styles.root}>
+        <Stack
+          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+          screenListeners={{
+            state: (e) => {
+              const routes = (e.data as any)?.state?.routes ?? [];
+              const current = routes[routes.length - 1];
+              if (current?.name === 'trip/[id]') {
+                setFolioId(current.params?.id);
+              } else {
+                setFolioId(undefined);
+              }
+            },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="trip/[id]" />
+        </Stack>
 
-      {!sheetOpen && (
-        <WayfinderDock
+        {!sheetOpen && (
+          <WayfinderDock theme={T} onExpand={() => openWayfinder()} />
+        )}
+
+        <WayfinderSheet
           theme={T}
-          onExpand={() => openWayfinder()}
+          open={sheetOpen}
+          onClose={handleClose}
+          seedQuestion={seedQ}
+          folioId={folioId}
+          composeMode={composeMode}
         />
-      )}
-
-      <WayfinderSheet
-        theme={T}
-        open={sheetOpen}
-        onClose={() => { setSheetOpen(false); setComposeMode(null); }}
-        seedQuestion={seedQ}
-        folioId={folioId}
-        composeMode={composeMode}
-      />
-    </View>
+      </View>
+    </WayfinderContext.Provider>
+    </FoliosProvider>
   );
 }
 

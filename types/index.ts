@@ -11,6 +11,11 @@ export interface TripEvent {
   meta: string;
   confirmed: boolean;
   alert?: boolean;
+  suggested?: boolean;
+  tips?: string[];       // insider notes, must-orders, queue warnings
+  location?: string;     // neighbourhood or address for map link
+  rating?: number;       // 0–5
+  reason?: string;       // why this was suggested
 }
 
 export interface TripDay {
@@ -20,6 +25,9 @@ export interface TripDay {
   confirmed?: boolean;
   empty?: boolean;
   events: TripEvent[];
+  theme?: string;        // e.g. "Explore Yanaka", "Day trip · Nikko", "Rest day"
+  area?: string;         // primary neighbourhood focus for the day
+  photoQuery?: string;   // 2-3 word Unsplash search term for the day's hero image
 }
 
 export interface TripDoc {
@@ -39,6 +47,8 @@ export interface Folio {
   palette: TripPalette;
   visa: { label: string; status: string } | null;
   teaser: string;
+  tldr?: string;         // one paragraph: what to expect overall
+  highlights?: string[]; // 3–5 bullet points
   days: TripDay[];
   docs: TripDoc[];
 }

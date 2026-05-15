@@ -20,10 +20,10 @@ export interface Palette {
 export const PALETTES: Record<PaletteKey, Palette> = {
   bone: {
     key: 'bone', name: 'Bone',
-    bg: '#f1ebde', surface: '#f8f3e7', ink: '#1c1a17',
+    bg: '#f5f2ec', surface: '#faf8f4', ink: '#1c1a17',
     muted: '#8a7f6e', sub: '#5c554a', accent: '#a8624c',
-    hair: 'rgba(28,26,23,0.10)',
-    sheet: '#f8f3e7',
+    hair: 'rgba(28,26,23,0.09)',
+    sheet: '#faf8f4',
     dock: 'rgba(28,26,23,0.86)', dockBorder: 'rgba(245,239,226,0.10)',
     dockText: '#f5efe2', dockMuted: 'rgba(245,239,226,0.55)',
   },
@@ -60,6 +60,20 @@ export const DEFAULT_PALETTE: Palette = PALETTES.bone;
 
 // Trip destination palettes for procedural art
 export interface TripPalette { a: string; b: string; c: string; accent: string }
+
+const FALLBACK_PALETTES: TripPalette[] = [
+  { a: '#d4c4b0', b: '#8a7a6a', c: '#2a2218', accent: '#a8824c' },
+  { a: '#b0c4d4', b: '#6a8a9a', c: '#182228', accent: '#4c82a8' },
+  { a: '#c4b0d4', b: '#8a6a9a', c: '#221828', accent: '#9a6ca8' },
+  { a: '#b0d4c4', b: '#6a9a8a', c: '#182822', accent: '#4ca882' },
+  { a: '#d4b0b0', b: '#9a6a6a', c: '#281818', accent: '#a84c4c' },
+  { a: '#d4d4b0', b: '#9a9a6a', c: '#282818', accent: '#a8a84c' },
+];
+
+export function generateTripPalette(seed: string): TripPalette {
+  const hash = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return FALLBACK_PALETTES[hash % FALLBACK_PALETTES.length];
+}
 
 export const TRIP_PALETTES: Record<string, TripPalette> = {
   tokyo: { a: '#f4d8d4', b: '#e8a6a0', c: '#3a2a32', accent: '#a8624c' },
