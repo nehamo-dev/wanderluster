@@ -2,7 +2,39 @@ import Groq from 'groq-sdk';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const SYSTEM = `You are a travel planning AI that creates detailed, opinionated trip itineraries.
+const MONTHS: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function correctDates(folio: any): any {
+  if (!Array.isArray(folio.days)) return folio;
+  const now = new Date();
+  folio.days = folio.days.map((day: any) => {
+    if (!day.date) return day;
+    const m = day.date.match(/([A-Z][a-z]{2})\s+(\d{1,2})/);
+    if (!m) return day;
+    const month = MONTHS[m[1]];
+    if (month === undefined) return day;
+    const dayNum = parseInt(m[2], 10);
+    // Pick year: if the date has already passed this year, assume next year
+    const year = new Date(now.getFullYear(), month, dayNum) < now
+      ? now.getFullYear() + 1
+      : now.getFullYear();
+    const d = new Date(year, month, dayNum);
+    const correctDay = DAYS[d.getDay()];
+    return { ...day, date: `${correctDay} · ${m[1]} ${m[2]}` };
+  });
+  return folio;
+}
+
+function buildSystem(): string {
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return `You are a travel planning AI that creates detailed, opinionated trip itineraries.
+Today's date is ${today}. Use this to calculate correct days of the week for all dates.
 
 Given a trip description, create a complete day-by-day itinerary. Cluster each day geographically — events on the same day should be walkable or in the same neighbourhood where possible.
 
@@ -29,6 +61,7 @@ Return ONLY valid JSON. No markdown, no explanation. Exact shape:
       "label": "Arrival & first evening",
       "theme": "Arrival · Nihonbashi",
       "area": "Nihonbashi / Ginza",
+      "photoQuery": "Tokyo street night",
       "events": [
         {
           "kind": "flight",
@@ -47,36 +80,40 @@ Return ONLY valid JSON. No markdown, no explanation. Exact shape:
           "suggested": true,
           "rating": 4.7,
           "location": "Nihonbashi, Tokyo",
-          "tips": ["Ask for a room on the upper floors for city views", "The in-house bar Ao is worth a drink before dinner"]
-        },
-        {
-          "kind": "food",
-          "time": "20:00",
-          "title": "Tonki",
-          "meta": "Meguro · tonkatsu counter",
-          "suggested": true,
-          "rating": 4.5,
-          "location": "Meguro, Tokyo",
-          "tips": ["Order the hire katsu (loin)", "Queue outside — worth the 20-minute wait", "Cash only"]
+          "reason": "One of the most design-forward boutique hotels in central Tokyo.",
+          "tips": ["Ask for a room on the upper floors for city views"]
         }
       ]
     }
   ]
 }
 
-Rules:
+CRITICAL RULES — read carefully:
+
+SUGGESTED vs CONFIRMED:
+- "suggested": false  → ONLY for things the user explicitly mentioned: a specific flight number, hotel name they booked, restaurant reservation they made, confirmed activity they named. If the user said it, it's confirmed.
+- "suggested": true   → EVERYTHING else you are recommending — hotels, restaurants, sights, transport, any idea of your own. When in doubt, mark suggested.
+- NEVER invent confirmed bookings. If the user only mentioned dates and a city, every event except their stated details must be suggested: true.
+
+DATES:
+- Use today's date (${today}) to calculate the correct day of week for every date in the itinerary.
+- Date format: "Mon · Mar 10" — the three-letter day abbreviation must be mathematically correct.
+- If the user didn't specify a year, use the next upcoming occurrence of those dates.
+
+OTHER RULES:
 - kind: flight, hotel, food, activity, transport, or flag
 - 3–5 events per day, geographically clustered
-- theme: short tag for the day character — "Explore Yanaka", "Day trip · Nikko", "Rest day", "Markets & music"
+- theme: short tag for the day character — "Explore Yanaka", "Day trip · Nikko", "Rest day"
 - area: primary neighbourhood or region for the day
-- photoQuery: 2–3 word Unsplash search term that best captures the day's highlight — a dish, landmark, or atmosphere. E.g. "Tokyo ramen bowl", "Kyoto bamboo forest", "Santorini sunset"
-- tips: 1–3 insider notes per event — what to order, when to arrive, what to skip, hidden details. Empty array if nothing specific.
-- rating: real-world rating out of 5 for hotels, restaurants, attractions. Omit for flights/transport.
-- location: neighbourhood, district or address for map linking. Omit for flights.
-- reason: for suggested events only — one short sentence explaining why this was added (e.g. "Highly rated neighbourhood gem a short walk from your hotel"). Omit for confirmed/known events.
-- highlights: 3–5 bullet points at folio level — timing notes, must-dos, budget hints
-- tldr: 2–3 sentences capturing the overall rhythm and character
+- photoQuery: 2–3 word Unsplash search term for the day's visual highlight — a dish, landmark, or mood
+- tips: 1–3 insider notes per event. Empty array [] if nothing specific.
+- rating: real-world rating 0–5 for hotels, restaurants, attractions. Omit for flights/transport.
+- location: neighbourhood or address for map. Omit for flights.
+- reason: suggested events only — one sentence why this was added. Omit for confirmed events.
+- highlights: 3–5 folio-level bullet points — timing, must-dos, budget
+- tldr: 2–3 sentences on overall rhythm and character
 - Pure JSON only — no markdown fences`;
+}
 
 function extractJSON(raw: string): unknown {
   const stripped = raw
@@ -116,6 +153,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'No input provided' }, { status: 400 });
     }
 
+    const SYSTEM = buildSystem();
     let raw: string;
 
     if (imageData) {
@@ -128,7 +166,7 @@ export async function POST(request: Request) {
             { type: 'image_url', image_url: { url: imageData } },
             {
               type: 'text',
-              text: `${SYSTEM}\n\nThis is a screenshot of a trip itinerary or booking. Extract visible details as known events, add suggested events with tips and ratings to fill the trip.${input?.trim() ? `\n\nUser note: ${input.trim()}` : ''}`,
+              text: `${SYSTEM}\n\nThis is a screenshot of a trip itinerary or booking. Extract visible details as confirmed events (suggested: false). Add suggested events (suggested: true) with tips and ratings to fill the trip.${input?.trim() ? `\n\nUser note: ${input.trim()}` : ''}`,
             },
           ] as any,
         }],
@@ -152,13 +190,13 @@ export async function POST(request: Request) {
         max_tokens: 4000,
         messages: [
           { role: 'system', content: SYSTEM },
-          { role: 'user', content: content },
+          { role: 'user', content },
         ],
       });
       raw = result.choices[0]?.message?.content ?? '{}';
     }
 
-    const folio = extractJSON(raw);
+    const folio = correctDates(extractJSON(raw));
     return Response.json({ folio });
   } catch (err: any) {
     const detail = err?.message ?? String(err);

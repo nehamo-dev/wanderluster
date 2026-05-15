@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import type { Palette } from '../../constants/theme';
 import type { TripEvent } from '../../types';
@@ -14,21 +14,28 @@ interface Props {
   isLast?: boolean;
   onConfirm?: () => void;
   onRemove?: () => void;
+  onRemoveConfirmed?: (reason: 'incorrect_data' | 'change_of_plan') => void;
   loadingAlternative?: boolean;
 }
 
-export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loadingAlternative }: Props) {
+export function EventRow({
+  event, theme: T, isLast,
+  onConfirm, onRemove, onRemoveConfirmed,
+  loadingAlternative,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [reasonVisible, setReasonVisible] = useState(false);
+  const [confirmChoice, setConfirmChoice] = useState(false);
+
   const label = KIND_LABEL[event.kind] ?? 'Note';
   const isSuggested = event.suggested === true;
+  const isConfirmed = !isSuggested;
   const hasTips = event.tips && event.tips.length > 0;
   const hasDetails = hasTips || event.rating != null || event.location != null;
 
   function openMap() {
     if (!event.location) return;
-    const query = encodeURIComponent(event.location);
-    Linking.openURL(`https://maps.google.com/?q=${query}`);
+    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(event.location)}`);
   }
 
   if (loadingAlternative) {
@@ -51,7 +58,7 @@ export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loading
     <View>
       <TouchableOpacity
         activeOpacity={hasDetails ? 0.75 : 1}
-        onPress={hasDetails ? () => setExpanded(e => !e) : undefined}
+        onPress={hasDetails ? () => { setExpanded(e => !e); setConfirmChoice(false); } : undefined}
       >
         <View style={[styles.row, isSuggested && styles.suggestedRow]}>
           {/* time gutter */}
@@ -91,13 +98,13 @@ export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loading
                   <TouchableOpacity
                     onPress={() => setReasonVisible(v => !v)}
                     activeOpacity={0.7}
-                    // @ts-ignore – web only
+                    // @ts-ignore – web hover
                     onMouseEnter={() => setReasonVisible(true)}
                     onMouseLeave={() => setReasonVisible(false)}
                   >
                     <View style={[styles.suggestedBadge, { borderColor: reasonVisible ? T.accent : T.hair }]}>
                       <Text style={[styles.suggestedBadgeText, { color: reasonVisible ? T.accent : T.muted }]}>
-                        Suggested {event.reason ? '?' : ''}
+                        Suggested{event.reason ? ' ?' : ''}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -115,9 +122,7 @@ export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loading
               <View style={styles.metaRow}>
                 <Text style={[styles.meta, { color: T.muted }]}>{event.meta}</Text>
                 {event.rating != null && (
-                  <Text style={[styles.rating, { color: T.sub }]}>
-                    {event.rating.toFixed(1)} ★
-                  </Text>
+                  <Text style={[styles.rating, { color: T.sub }]}>{event.rating.toFixed(1)} ★</Text>
                 )}
               </View>
             ) : event.rating != null ? (
@@ -125,7 +130,7 @@ export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loading
             ) : null}
           </View>
 
-          {/* + / × actions for suggested events */}
+          {/* suggested: + / × */}
           {isSuggested && (
             <View style={styles.actions}>
               <TouchableOpacity
@@ -145,12 +150,52 @@ export function EventRow({ event, theme: T, isLast, onConfirm, onRemove, loading
             </View>
           )}
 
+          {/* confirmed: × to flag */}
+          {isConfirmed && onRemoveConfirmed && (
+            <TouchableOpacity
+              onPress={() => { setConfirmChoice(c => !c); setExpanded(false); }}
+              style={[styles.actionBtn, { backgroundColor: 'transparent', borderWidth: 0.5, borderColor: T.hair }]}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+            >
+              <Text style={[styles.actionText, { color: T.muted }]}>×</Text>
+            </TouchableOpacity>
+          )}
+
           {/* expand chevron */}
-          {hasDetails && !isSuggested && (
+          {hasDetails && !isSuggested && !confirmChoice && (
             <Text style={[styles.chevron, { color: T.muted }]}>{expanded ? '∧' : '∨'}</Text>
           )}
         </View>
       </TouchableOpacity>
+
+      {/* confirmed × choice */}
+      {confirmChoice && (
+        <View style={[styles.choicePanel, { backgroundColor: T.surface, borderColor: T.hair }]}>
+          <Text style={[styles.choiceLabel, { color: T.muted }]}>What's wrong with this?</Text>
+          <View style={styles.choiceBtns}>
+            <TouchableOpacity
+              onPress={() => { setConfirmChoice(false); onRemoveConfirmed?.('incorrect_data'); }}
+              style={[styles.choiceBtn, { borderColor: T.accent }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.choiceBtnText, { color: T.accent }]}>Incorrect data</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setConfirmChoice(false); onRemoveConfirmed?.('change_of_plan'); }}
+              style={[styles.choiceBtn, { borderColor: T.hair }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.choiceBtnText, { color: T.sub }]}>Change of plan</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setConfirmChoice(false)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.choiceCancel, { color: T.muted }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* expanded details */}
       {expanded && hasDetails && (
@@ -244,6 +289,25 @@ const styles = StyleSheet.create({
   },
   actionText: { fontSize: 15, lineHeight: 17, fontWeight: '400' },
   chevron: { fontSize: 10, flexShrink: 0, marginLeft: 4 },
+  choicePanel: {
+    marginHorizontal: 18,
+    marginTop: 0,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 0.5,
+    gap: 10,
+  },
+  choiceLabel: {
+    fontSize: 11, letterSpacing: 0.3,
+  },
+  choiceBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  choiceBtn: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 999, borderWidth: 0.5,
+  },
+  choiceBtnText: { fontSize: 12, letterSpacing: -0.1 },
+  choiceCancel: { fontSize: 11, marginLeft: 4 },
   loadingContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   loadingText: { fontSize: 12, letterSpacing: -0.1, fontStyle: 'italic' },
   divider: {
@@ -255,7 +319,6 @@ const styles = StyleSheet.create({
     marginRight: 18,
     paddingTop: 4,
     paddingBottom: 14,
-    borderTopWidth: 0,
     gap: 6,
   },
   tipsSection: { gap: 5 },

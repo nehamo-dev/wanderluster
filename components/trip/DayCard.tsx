@@ -14,6 +14,7 @@ interface Props {
   onAskWayfinder?: (q: string) => void;
   onConfirmEvent?: (eventIdx: number) => void;
   onRemoveEvent?: (eventIdx: number) => void;
+  onRemoveConfirmedEvent?: (eventIdx: number, reason: 'incorrect_data' | 'change_of_plan') => void;
   loadingEventIdx?: number | null;
 }
 
@@ -23,6 +24,7 @@ export function DayCard({
   onAskWayfinder,
   onConfirmEvent,
   onRemoveEvent,
+  onRemoveConfirmedEvent,
   loadingEventIdx,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -103,6 +105,7 @@ export function DayCard({
                 isLast={i === day.events.length - 1}
                 onConfirm={event.suggested ? () => onConfirmEvent?.(i) : undefined}
                 onRemove={event.suggested ? () => onRemoveEvent?.(i) : undefined}
+                onRemoveConfirmed={!event.suggested ? (reason) => onRemoveConfirmedEvent?.(i, reason) : undefined}
                 loadingAlternative={loadingEventIdx === i}
               />
             ))

@@ -47,6 +47,39 @@ export default function TripScreen() {
     }));
   }
 
+  async function removeConfirmedEvent(
+    dayN: number,
+    eventIdx: number,
+    reason: 'incorrect_data' | 'change_of_plan',
+  ) {
+    const day = days.find(d => d.n === dayN);
+    if (!day) return;
+    const event = day.events[eventIdx];
+
+    // Log feedback for training
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folioId: folio.id,
+        destination: folio.destination,
+        event: { kind: event.kind, title: event.title, time: event.time },
+        reason,
+      }),
+    }).catch(() => {});
+
+    if (reason === 'incorrect_data') {
+      // Just remove it — the data was wrong, no alternative needed
+      setDays(prev => prev.map(d => {
+        if (d.n !== dayN) return d;
+        return { ...d, events: d.events.filter((_, i) => i !== eventIdx) };
+      }));
+    } else {
+      // Change of plan — find an alternative just like removing a suggested event
+      await removeEvent(dayN, eventIdx);
+    }
+  }
+
   async function removeEvent(dayN: number, eventIdx: number) {
     const day = days.find(d => d.n === dayN);
     if (!day) return;
@@ -229,6 +262,7 @@ export default function TripScreen() {
               onAskWayfinder={() => {}}
               onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
               onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
+              onRemoveConfirmedEvent={(eventIdx, reason) => removeConfirmedEvent(day.n, eventIdx, reason)}
               loadingEventIdx={
                 Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))
                   ? parseInt(Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))![0].split('-')[1])
