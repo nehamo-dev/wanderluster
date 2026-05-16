@@ -13,10 +13,14 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/compose",   "destination": "/api/compose" },
-    { "source": "/api/wayfinder", "destination": "/api/wayfinder" },
-    { "source": "/api/suggest",   "destination": "/api/suggest" },
-    { "source": "/api/feedback",  "destination": "/api/feedback" },
-    { "source": "/(.*)",          "destination": "/index.html" }
+    { "source": "/api/compose",                   "destination": "/api/compose" },
+    { "source": "/api/wayfinder",                 "destination": "/api/wayfinder" },
+    { "source": "/api/suggest",                   "destination": "/api/suggest" },
+    { "source": "/api/feedback",                  "destination": "/api/feedback" },
+    { "source": "/api/auth/google/callback",      "destination": "/api/auth/google/callback" },
+    { "source": "/api/auth/google",               "destination": "/api/auth/google" },
+    { "source": "/api/calendar",                  "destination": "/api/calendar" },
+    { "source": "/api/gmail",                     "destination": "/api/gmail" },
+    { "source": "/(.*)",                          "destination": "/index.html" }
   ]
 }

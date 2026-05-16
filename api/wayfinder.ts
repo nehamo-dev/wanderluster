@@ -32,10 +32,22 @@ HALLUCINATION GUARD:
 
 When a folio IS loaded, answer questions about it concisely. Stay on the topic of that trip.`;
 
-function buildSystem(folio: Record<string, unknown> | null): string {
-  if (!folio) return BASE_SYSTEM;
+function buildSystem(
+  folio: Record<string, unknown> | null,
+  userContext?: { homeCity?: string; travelPreferences?: string },
+): string {
+  let system = BASE_SYSTEM;
+
+  if (userContext?.homeCity || userContext?.travelPreferences) {
+    const profileLines = ['\nUser profile:'];
+    if (userContext.homeCity) profileLines.push(`- Home city: ${userContext.homeCity}`);
+    if (userContext.travelPreferences) profileLines.push(`- Travel preferences: ${userContext.travelPreferences}`);
+    system += profileLines.join('\n');
+  }
+
+  if (!folio) return system;
   const lines = [
-    BASE_SYSTEM, '',
+    system, '',
     `Current folio: ${folio.destination}, ${folio.country} — ${folio.dates} (${folio.duration})`,
     `Season: ${folio.season} · Vibe: ${folio.vibe}`,
     `Teaser: ${folio.teaser}`,
@@ -73,9 +85,10 @@ export default async function handler(request: Request): Promise<Response> {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
   try {
-    const { messages, folio } = await request.json() as {
+    const { messages, folio, userContext } = await request.json() as {
       messages: Array<{ role: 'user' | 'assistant'; content: string }>;
       folio: Record<string, unknown> | null;
+      userContext?: { homeCity?: string; travelPreferences?: string };
     };
 
     if (!messages?.length) return Response.json({ error: 'messages required' }, { status: 400 });
@@ -85,7 +98,7 @@ export default async function handler(request: Request): Promise<Response> {
       max_tokens: 512,
       stream: true,
       messages: [
-        { role: 'system', content: buildSystem(folio) },
+        { role: 'system', content: buildSystem(folio, userContext) },
         ...messages,
       ],
     });

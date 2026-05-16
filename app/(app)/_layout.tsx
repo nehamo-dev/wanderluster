@@ -5,21 +5,27 @@ import { WayfinderDock } from '../../components/wayfinder/WayfinderDock';
 import { WayfinderSheet } from '../../components/wayfinder/WayfinderSheet';
 import { DEFAULT_PALETTE } from '../../constants/theme';
 import { WayfinderContext } from '../../lib/wayfinder-context';
-import { FoliosProvider } from '../../lib/folios-context';
+import { FoliosProvider, useFolios } from '../../lib/folios-context';
+import { SettingsProvider } from '../../lib/settings-context';
+import type { Folio } from '../../types';
 
 const T = DEFAULT_PALETTE;
 
 type ComposeMode = 'screenshots' | 'words' | 'link';
 
-export default function AppLayout() {
+function AppLayoutInner() {
+  const { updateFolio } = useFolios();
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [folioId, setFolioId] = useState<string | undefined>();
   const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
   const [seedQ, setSeedQ] = useState('');
+  const [editMode, setEditMode] = useState(false);
 
   function openWayfinder(q?: string) {
     if (q) setSeedQ(q);
     setComposeMode(null);
+    setEditMode(false);
     setSheetOpen(true);
   }
 
@@ -27,6 +33,15 @@ export default function AppLayout() {
     setComposeMode(kind);
     setSeedQ('');
     setFolioId(undefined);
+    setEditMode(false);
+    setSheetOpen(true);
+  }
+
+  function editFolio(id: string) {
+    setFolioId(id);
+    setComposeMode(null);
+    setSeedQ('');
+    setEditMode(true);
     setSheetOpen(true);
   }
 
@@ -34,11 +49,18 @@ export default function AppLayout() {
     setSheetOpen(false);
     setComposeMode(null);
     setSeedQ('');
+    setEditMode(false);
+  }
+
+  function handleUpdate(newFolio: Folio) {
+    if (folioId) {
+      updateFolio(folioId, newFolio);
+    }
+    handleClose();
   }
 
   return (
-    <FoliosProvider>
-    <WayfinderContext.Provider value={{ openCompose, openWayfinder }}>
+    <WayfinderContext.Provider value={{ openCompose, openWayfinder, editFolio }}>
       <View style={styles.root}>
         <Stack
           screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
@@ -48,7 +70,7 @@ export default function AppLayout() {
               const current = routes[routes.length - 1];
               if (current?.name === 'trip/[id]') {
                 setFolioId(current.params?.id);
-              } else {
+              } else if (!editMode) {
                 setFolioId(undefined);
               }
             },
@@ -56,6 +78,7 @@ export default function AppLayout() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="trip/[id]" />
+          <Stack.Screen name="settings" />
         </Stack>
 
         {!sheetOpen && (
@@ -69,10 +92,21 @@ export default function AppLayout() {
           seedQuestion={seedQ}
           folioId={folioId}
           composeMode={composeMode}
+          editMode={editMode}
+          onUpdate={handleUpdate}
         />
       </View>
     </WayfinderContext.Provider>
-    </FoliosProvider>
+  );
+}
+
+export default function AppLayout() {
+  return (
+    <SettingsProvider>
+      <FoliosProvider>
+        <AppLayoutInner />
+      </FoliosProvider>
+    </SettingsProvider>
   );
 }
 

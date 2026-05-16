@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
-  StyleSheet,
+  StyleSheet, Modal, Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import { FOLIOS, WAYFINDER_GREETINGS } from '../../../data/mock';
 import { getDestinationPhoto } from '../../../constants/photos';
 import { DestinationArt } from '../../../components/art/DestinationArt';
 import { DayCard } from '../../../components/trip/DayCard';
+import { useFolios } from '../../../lib/folios-context';
+import { useWayfinder } from '../../../lib/wayfinder-context';
 import type { TripDay, TripEvent } from '../../../types';
 
 function SmallCaps({ children, color, size = 10 }: { children: string; color: string; size?: number }) {
@@ -22,11 +24,15 @@ function SmallCaps({ children, color, size = 10 }: { children: string; color: st
 export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const folio = FOLIOS[id ?? 'tokyo'];
+  const { deleteFolio } = useFolios();
+  const { editFolio } = useWayfinder();
 
   const [activeDay, setActiveDay] = useState(1);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1, 2]));
   const [days, setDays] = useState<TripDay[]>(() => folio?.days ?? []);
   const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!folio) {
     router.back();
@@ -56,7 +62,6 @@ export default function TripScreen() {
     if (!day) return;
     const event = day.events[eventIdx];
 
-    // Log feedback for training
     fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,13 +74,11 @@ export default function TripScreen() {
     }).catch(() => {});
 
     if (reason === 'incorrect_data') {
-      // Just remove it — the data was wrong, no alternative needed
       setDays(prev => prev.map(d => {
         if (d.n !== dayN) return d;
         return { ...d, events: d.events.filter((_, i) => i !== eventIdx) };
       }));
     } else {
-      // Change of plan — find an alternative just like removing a suggested event
       await removeEvent(dayN, eventIdx);
     }
   }
@@ -133,6 +136,18 @@ export default function TripScreen() {
     }
   }
 
+  function handleDelete() {
+    deleteFolio(folio.id);
+    setConfirmDelete(false);
+    setMenuVisible(false);
+    router.replace('/(app)');
+  }
+
+  function handleEditTrip() {
+    setMenuVisible(false);
+    editFolio(folio.id);
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -160,8 +175,17 @@ export default function TripScreen() {
               <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                 <Text style={styles.backChevron}>‹</Text>
               </TouchableOpacity>
-              <View style={styles.folioBadge}>
-                <Text style={styles.folioBadgeText}>Folio · Draft</Text>
+              <View style={styles.navRight}>
+                <View style={styles.folioBadge}>
+                  <Text style={styles.folioBadgeText}>Folio · Draft</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setMenuVisible(true)}
+                  style={styles.menuBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.menuDots}>⋯</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </SafeAreaView>
@@ -309,6 +333,63 @@ export default function TripScreen() {
 
         <View style={{ height: 160 }} />
       </ScrollView>
+
+      {/* ⋯ menu overlay */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setMenuVisible(false); setConfirmDelete(false); }}
+      >
+        <Pressable style={styles.overlay} onPress={() => { setMenuVisible(false); setConfirmDelete(false); }}>
+          <Pressable style={[styles.menuCard, { backgroundColor: T.surface, borderColor: T.hair }]} onPress={() => {}}>
+            {!confirmDelete ? (
+              <>
+                <TouchableOpacity
+                  onPress={handleEditTrip}
+                  style={styles.menuItem}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[styles.menuItemText, { color: T.ink }]}>Edit trip</Text>
+                </TouchableOpacity>
+                <View style={[styles.menuDivider, { backgroundColor: T.hair }]} />
+                <TouchableOpacity
+                  onPress={() => setConfirmDelete(true)}
+                  style={styles.menuItem}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[styles.menuItemText, { color: '#c04040' }]}>Delete trip</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.confirmBox}>
+                <Text style={[styles.confirmTitle, { color: T.ink }]}>
+                  Delete {folio.destination}?
+                </Text>
+                <Text style={[styles.confirmSub, { color: T.muted }]}>
+                  This can't be undone.
+                </Text>
+                <View style={styles.confirmButtons}>
+                  <TouchableOpacity
+                    onPress={() => setConfirmDelete(false)}
+                    style={[styles.confirmCancel, { borderColor: T.hair }]}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.confirmCancelText, { color: T.sub }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDelete}
+                    style={styles.confirmDelete}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.confirmDeleteText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -320,6 +401,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingTop: 56,
   },
+  navRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(245,239,226,0.18)',
@@ -336,6 +418,13 @@ const styles = StyleSheet.create({
     color: '#f5efe2', fontSize: 10,
     letterSpacing: 3, textTransform: 'uppercase', fontFamily: 'monospace',
   },
+  menuBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(245,239,226,0.18)',
+    borderWidth: 0.5, borderColor: 'rgba(245,239,226,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  menuDots: { color: '#f5efe2', fontSize: 18, letterSpacing: 1 },
   heroText: {
     position: 'absolute', left: 24, right: 24, bottom: 26,
   },
@@ -405,4 +494,31 @@ const styles = StyleSheet.create({
   },
   docStatusIcon: { fontSize: 11 },
   docDivider: { height: 0.5, marginHorizontal: 16 },
+  // menu overlay
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.38)',
+    justifyContent: 'center', alignItems: 'center',
+    padding: 32,
+  },
+  menuCard: {
+    width: '100%', maxWidth: 320, borderRadius: 16,
+    borderWidth: 0.5, overflow: 'hidden',
+  },
+  menuItem: { paddingHorizontal: 20, paddingVertical: 18 },
+  menuItemText: { fontSize: 15, letterSpacing: -0.2 },
+  menuDivider: { height: 0.5 },
+  confirmBox: { padding: 20, gap: 8 },
+  confirmTitle: { fontSize: 16, fontWeight: '500', letterSpacing: -0.3 },
+  confirmSub: { fontSize: 13, letterSpacing: -0.1, marginTop: 2 },
+  confirmButtons: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  confirmCancel: {
+    flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 0.5,
+    alignItems: 'center',
+  },
+  confirmCancelText: { fontSize: 14, letterSpacing: -0.1 },
+  confirmDelete: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#c04040', alignItems: 'center',
+  },
+  confirmDeleteText: { fontSize: 14, letterSpacing: -0.1, color: '#fff', fontWeight: '500' },
 });

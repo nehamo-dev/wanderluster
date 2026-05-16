@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, ScrollView,
+  View, Text, ScrollView, TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,9 +40,13 @@ export default function HomeScreen() {
               <View style={[styles.logoOrb, { backgroundColor: T.accent }]} />
               <Text style={[styles.logoText, { color: T.ink }]}>Wanderluster</Text>
             </View>
-            <View style={[styles.avatar, { backgroundColor: T.surface, borderColor: T.hair }]}>
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/settings')}
+              style={[styles.avatar, { backgroundColor: T.surface, borderColor: T.hair }]}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.avatarText, { color: T.sub }]}>M</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Greeting */}

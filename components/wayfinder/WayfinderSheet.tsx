@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { FOLIOS, WAYFINDER_GREETINGS } from '../../data/mock';
 import { generateTripPalette } from '../../constants/theme';
 import { useFolios } from '../../lib/folios-context';
+import { useSettings } from '../../lib/settings-context';
 import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
 import { FilmGrain } from '../art/FilmGrain';
 
@@ -88,11 +89,17 @@ function useVoice(onTranscript: (t: string) => void) {
   return { listening, toggle, supported };
 }
 
-function seedMessages(folioId?: string, composeMode?: ComposeMode): ChatMessage[] {
+function seedMessages(folioId?: string, composeMode?: ComposeMode, editMode?: boolean, folio?: Folio | null): ChatMessage[] {
+  if (editMode && folio) {
+    return [{
+      id: 'seed',
+      role: 'wayfinder',
+      text: `What would you like to change about your ${folio.destination} trip? Tell me and I'll rebuild it.`,
+    }];
+  }
   if (composeMode) {
     return [{ id: 'seed', role: 'wayfinder', text: COMPOSE_INTROS[composeMode] }];
   }
-  // In chat mode: no seed message — just show suggestions
   return [];
 }
 
@@ -129,11 +136,21 @@ interface Props {
   seedQuestion?: string;
   folioId?: string;
   composeMode?: ComposeMode;
+  editMode?: boolean;
+  onUpdate?: (folio: Folio) => void;
 }
 
-export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId, composeMode }: Props) {
+export function WayfinderSheet({
+  theme: T, open, onClose, seedQuestion, folioId, composeMode,
+  editMode = false, onUpdate,
+}: Props) {
   const { addFolio } = useFolios();
-  const [messages, setMessages] = useState<ChatMessage[]>(() => seedMessages(folioId, composeMode));
+  const { settings } = useSettings();
+  const folio = folioId ? (FOLIOS[folioId] ?? null) : null;
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    seedMessages(folioId, composeMode, editMode, folio)
+  );
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const [composed, setComposed] = useState(false);
@@ -145,7 +162,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const folio = folioId ? FOLIOS[folioId] ?? null : null;
   const effectiveMode = activeMode ?? composeMode ?? null;
   const suggestions = buildSuggestions(folio);
   const { listening, toggle: toggleVoice, supported: voiceSupported } = useVoice(
@@ -162,13 +178,14 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
 
   useEffect(() => {
     setActiveMode(null);
-    setMessages(seedMessages(folioId, composeMode));
+    const currentFolio = folioId ? (FOLIOS[folioId] ?? null) : null;
+    setMessages(seedMessages(folioId, composeMode, editMode, currentFolio));
     setComposed(false);
     setFileName(null);
     setImageData(null);
     setImagePreview(null);
     setInput(composeMode === 'link' ? 'https://' : '');
-  }, [folioId, composeMode]);
+  }, [folioId, composeMode, editMode]);
 
   useEffect(() => {
     if (seedQuestion) setInput(seedQuestion);
@@ -255,7 +272,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         return;
       }
 
-      // Response is a streamed text/plain JSON — accumulate then parse
       let rawText = '';
       if (res.body) {
         const reader = res.body.getReader();
@@ -267,7 +283,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           if (value) rawText += decoder.decode(value, { stream: true });
         }
       } else {
-        // Fallback: legacy JSON response (image mode)
         const d = await res.clone().json().catch(() => ({}));
         if (d.folio) rawText = JSON.stringify(d.folio);
       }
@@ -334,10 +349,17 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
           content: m.text!,
         }));
 
+      const userContext = (settings.homeCity || settings.travelPreferences)
+        ? {
+            homeCity: settings.homeCity || undefined,
+            travelPreferences: settings.travelPreferences || undefined,
+          }
+        : undefined;
+
       const response = await fetch('/api/wayfinder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, folio }),
+        body: JSON.stringify({ messages: history, folio, userContext }),
       });
 
       if (!response.ok || !response.body) throw new Error('api error');
@@ -356,7 +378,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         if (value) {
           const chunk = decoder.decode(value, { stream: true });
           fullText += chunk;
-          // Strip the [COMPOSE:...] trigger from displayed text
           const displayText = fullText.replace(/\[COMPOSE:[\s\S]*?\]/g, '').trimEnd();
           setMessages(prev => prev.map(m =>
             m.id === replyId ? { ...m, text: displayText } : m
@@ -365,13 +386,32 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         }
       }
 
-      // Auto-compose trigger: either the model outputs [COMPOSE:...], or the user
-      // has answered the questions (2nd user message with no folio loaded).
+      // Edit mode: after 2 user messages, trigger a recompose
+      if (editMode && folio) {
+        const allMessages = [...messages, userMsg];
+        const userTurns = allMessages.filter(m => m.role === 'user').length;
+        if (userTurns >= 2) {
+          const originalContext = [
+            `Original trip: ${folio.destination}, ${folio.country} — ${folio.dates} (${folio.duration})`,
+            `Season: ${folio.season} · Vibe: ${folio.vibe}`,
+            `Teaser: ${folio.teaser}`,
+          ].join('\n');
+          const conversationBrief = allMessages
+            .filter(m => m.id !== 'seed' && m.text)
+            .map(m => `${m.role === 'user' ? 'User' : 'Wayfinder'}: ${m.text}`)
+            .join('\n');
+          const brief = `${originalContext}\n\nRequested changes:\n${conversationBrief}`;
+          setTimeout(() => autoRecompose(brief), 400);
+          return;
+        }
+      }
+
+      // Standard new-trip compose trigger
       const composeMatch = fullText.match(/\[COMPOSE:\s*([\s\S]+?)\]/);
       if (composeMatch) {
         const brief = composeMatch[1].trim();
         setTimeout(() => autoCompose(brief), 400);
-      } else if (!folio && !effectiveMode) {
+      } else if (!folio && !effectiveMode && !editMode) {
         const allMessages = [...messages, userMsg];
         const userTurns = allMessages.filter(m => m.role === 'user').length;
         if (userTurns >= 2) {
@@ -410,7 +450,6 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
         throw new Error(errMsg);
       }
 
-      // Streamed text/plain JSON — accumulate then parse
       let rawText = '';
       if (res.body) {
         const reader = res.body.getReader();
@@ -460,6 +499,85 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
     }
   }
 
+  async function autoRecompose(brief: string) {
+    setThinking(true);
+    setMessages(prev => [...prev, {
+      id: `w-${Date.now()}`, role: 'wayfinder',
+      text: 'Rebuilding your folio now…',
+    }]);
+    try {
+      const res = await fetch('/api/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'words', input: brief }),
+      });
+      if (!res.ok) {
+        let errMsg = `API returned ${res.status}`;
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        throw new Error(errMsg);
+      }
+
+      let rawText = '';
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        while (!done) {
+          const { value, done: d } = await reader.read();
+          done = d;
+          if (value) rawText += decoder.decode(value, { stream: true });
+        }
+      }
+
+      setThinking(false);
+
+      let raw: any;
+      try {
+        const parsed = JSON.parse(rawText);
+        raw = correctDates(parsed.folio ?? parsed);
+      } catch {
+        raw = extractAndParseFolio(rawText);
+      }
+
+      const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
+      const newFolio: Folio = {
+        ...raw,
+        id: folio?.id ?? raw.destination,
+        palette,
+        title: raw.title ?? raw.destination,
+        docs: folio?.docs ?? [],
+        days: (raw.days ?? []).map((d: any) => ({
+          ...d,
+          confirmed: d.events?.some((e: any) => !e.suggested) ?? false,
+          events: (d.events ?? []).map((e: any) => ({
+            ...e,
+            confirmed: e.suggested ? false : (e.confirmed ?? false),
+          })),
+        })),
+      };
+
+      setMessages(prev => [...prev, {
+        id: `w-${Date.now()}`, role: 'wayfinder',
+        text: 'Trip updated.',
+      }]);
+
+      setTimeout(() => {
+        if (onUpdate) {
+          onUpdate(newFolio);
+        } else {
+          onClose();
+        }
+      }, 700);
+    } catch (err) {
+      console.error('[autoRecompose]', err);
+      setThinking(false);
+      setMessages(prev => [...prev, {
+        id: `w-${Date.now()}`, role: 'wayfinder',
+        text: 'Had trouble rebuilding the folio. Try again.',
+      }]);
+    }
+  }
+
   function send(override?: string) {
     const text = (override ?? input).trim();
     if (!text && !imageData) return;
@@ -479,11 +597,12 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
     effectiveMode === 'link' ? 'Paste a URL'
       : effectiveMode === 'words' ? 'Where to, and how should it feel?'
         : effectiveMode === 'screenshots' ? 'Or describe your trip in words…'
-          : !folio ? 'Or type a trip idea here…'
-            : 'Ask anything about your trip…';
+          : editMode ? 'Tell me what to change…'
+            : !folio ? 'Or type a trip idea here…'
+              : 'Ask anything about your trip…';
 
-  const showCreateOptions = !folio && !effectiveMode && messages.length === 0 && !thinking;
-  const showFolioSuggestions = !!folio && messages.length === 0 && !thinking;
+  const showCreateOptions = !folio && !effectiveMode && !editMode && messages.length === 0 && !thinking;
+  const showFolioSuggestions = !!folio && !editMode && messages.length === 0 && !thinking;
 
   return (
     <>
@@ -508,7 +627,7 @@ export function WayfinderSheet({ theme: T, open, onClose, seedQuestion, folioId,
               <View>
                 <Text style={[styles.headerName, { color: T.ink }]}>Wayfinder</Text>
                 <Text style={[styles.headerSub, { color: T.muted }]}>
-                  {effectiveMode ? 'New folio' : 'Your concierge'}
+                  {editMode ? 'Edit folio' : effectiveMode ? 'New folio' : 'Your concierge'}
                 </Text>
               </View>
             </View>
