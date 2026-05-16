@@ -53,20 +53,24 @@ Regression: demo button disappeared when `__DEV__` gating was used.
 
 ---
 
-## 5. Wayfinder — create options & new trip flow
+## 5. Wayfinder — create modal & new trip flow
 
 Regression: Wayfinder chatted indefinitely without creating a folio; model ignored [COMPOSE:] trigger.
 Fix: client now auto-composes after 2nd user message in no-folio chat mode (model output no longer required).
 
-- [ ] Opening Wayfinder from AddTile shows create options panel (not generic suggestions)
-- [ ] Header shows "W" circle icon and "YOUR CONCIERGE" subtitle
-- [ ] Hero card shows gradient with "A BLANK FOLIO" + "Anywhere you like."
-- [ ] 4 rows visible: Screenshots & files, Describe in words, Paste a link, Talk to me
-- [ ] Tapping "Describe in words" → seed message appears, header switches to "NEW FOLIO"
-- [ ] Tapping "Talk to me" → conversational seed message appears, no compose mode set
-- [ ] Tapping "Screenshots & files" → upload strip appears above input bar
-- [ ] Typing a trip idea directly in input and sending → chat flow starts
-- [ ] After 2nd user message in chat mode → "Building your folio now…" appears automatically
+- [ ] Tapping the Wayfinder dock opens a centered modal (not a bottom sheet)
+- [ ] Modal has warm off-white (#F7F5F0) background, 20px border-radius, dark scrim behind it
+- [ ] Header: compass avatar (dark circle) + "Wayfinder" / "Your AI travel concierge" + × close button
+- [ ] Thin divider separates header from body
+- [ ] Body shows "Where do you want to go?" heading + subtext
+- [ ] Textarea is visible with placeholder text ("Paris in spring, maybe…")
+- [ ] 3-button row: "Upload file" | "Paste link" | → send arrow — all equal height, 10px radius
+- [ ] Footer shows lock icon + "Your uploads are only used to plan your trip."
+- [ ] Tapping × or the scrim closes the modal
+- [ ] Typing in the textarea and tapping → sends the message and transitions to chat view
+- [ ] Tapping "Upload file" opens file picker and shows selected file chip
+- [ ] Tapping "Paste link" pre-fills input with "https://" and focuses textarea
+- [ ] After 2nd user message in chat → "Building your folio now…" appears automatically
 - [ ] Folio is created and app navigates to the trip detail screen automatically
 - [ ] `[COMPOSE: ...]` tag is NOT visible in the chat — stripped from display if model outputs it
 
