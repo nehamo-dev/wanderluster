@@ -8,6 +8,14 @@ export const FOLIO_PHOTOS: Record<string, string> = {
   austin:   W('f/f4/Skyline_of_Austin%2C_Texas_%28cropped%29.jpg/960px-Skyline_of_Austin%2C_Texas_%28cropped%29.jpg'),
   lisbon:   W('4/4d/Lisboa_April_2009-11.jpg/960px-Lisboa_April_2009-11.jpg'),
   amsterdam: W('a/a9/Amsterdam_-_Jordaan.jpg/960px-Amsterdam_-_Jordaan.jpg'),
+  bali:     W('3/34/Rice_Terrace_Bali.jpg/960px-Rice_Terrace_Bali.jpg'),
+  ubud:     W('3/34/Rice_Terrace_Bali.jpg/960px-Rice_Terrace_Bali.jpg'),
+  paris:    W('a/af/Tour_eiffel_at_sunrise_from_the_trocadero.jpg/960px-Tour_eiffel_at_sunrise_from_the_trocadero.jpg'),
+  london:   W('6/67/London_Skyline_%28125508655%29.jpeg/960px-London_Skyline_%28125508655%29.jpeg'),
+  barcelona: W('d/de/Barcelonata_neighbourhood_in_Barcelona.jpg/960px-Barcelonata_neighbourhood_in_Barcelona.jpg'),
+  santorini: W('4/4e/Santorini_in_winter_seen_from_Thira_in_the_north_towards_south.jpg/960px-Santorini_in_winter_seen_from_Thira_in_the_north_towards_south.jpg'),
+  greece:   W('4/4e/Santorini_in_winter_seen_from_Thira_in_the_north_towards_south.jpg/960px-Santorini_in_winter_seen_from_Thira_in_the_north_towards_south.jpg'),
+  new_york: W('0/05/Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg/960px-Southwest_corner_of_Central_Park%2C_looking_east%2C_NYC.jpg'),
 };
 
 export const WISHLIST_PHOTOS: Record<string, string> = {
@@ -39,7 +47,14 @@ export async function fetchWikiPhoto(destination: string): Promise<string | null
     const pages = data?.query?.pages ?? {};
     const page = Object.values(pages)[0] as any;
     const src: string | undefined = page?.thumbnail?.source;
-    if (!src || src.endsWith('.svg') || src.endsWith('.PNG') || src.includes('map')) return null;
+    if (!src) return null;
+    // Reject maps, flags, diagrams, SVG-derived PNGs (locator maps, coat of arms, etc.)
+    const lower = src.toLowerCase();
+    const isJunk = lower.endsWith('.svg') || lower.includes('.svg.png')
+      || lower.includes('map') || lower.includes('flag') || lower.includes('locator')
+      || lower.includes('marker') || lower.includes('logo') || lower.includes('coat')
+      || lower.includes('outline') || lower.includes('blank') || lower.includes('seal');
+    if (isJunk) return null;
     return src.split('?')[0]; // strip UTM params
   } catch {
     return null;

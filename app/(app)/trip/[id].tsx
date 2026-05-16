@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
   StyleSheet, Modal, Pressable,
@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { DEFAULT_PALETTE as T } from '../../../constants/theme';
 import { FOLIOS, WAYFINDER_GREETINGS } from '../../../data/mock';
-import { getDestinationPhoto } from '../../../constants/photos';
+import { getDestinationPhoto, fetchWikiPhoto } from '../../../constants/photos';
 import { DestinationArt } from '../../../components/art/DestinationArt';
 import { DayCard } from '../../../components/trip/DayCard';
 import { useFolios } from '../../../lib/folios-context';
@@ -33,13 +33,22 @@ export default function TripScreen() {
   const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [wikiPhoto, setWikiPhoto] = useState<string | null>(null);
+
+  const staticPhoto = folio ? getDestinationPhoto(folio.id, folio.destination) : null;
+  const heroPhoto = staticPhoto ?? wikiPhoto;
+
+  useEffect(() => {
+    if (!folio || staticPhoto) return;
+    fetchWikiPhoto(folio.destination).then(url => {
+      if (url) setWikiPhoto(url);
+    });
+  }, [folio?.id]);
 
   if (!folio) {
     router.back();
     return null;
   }
-
-  const heroPhoto = getDestinationPhoto(folio.id, folio.destination);
 
   function confirmEvent(dayN: number, eventIdx: number) {
     setDays(prev => prev.map(d => {
