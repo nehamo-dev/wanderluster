@@ -690,7 +690,13 @@ export function WayfinderSheet({
             {/* ── Header ── */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <WayfinderIcon size={34} accent={T.accent} bg="#F7F5F0" />
+                <LinearGradient
+                  colors={[T.accent, T.ink]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ color: T.dockText, fontSize: 13, fontWeight: '500' }}>W</Text>
+                </LinearGradient>
                 <View style={styles.headerText}>
                   <Text style={styles.headerName}>Wayfinder</Text>
                   <Text style={styles.headerSub}>
