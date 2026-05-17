@@ -45,7 +45,29 @@
       "Bash(curl -v -X POST http://localhost:8082/api/wayfinder -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"folio\":null}' --max-time 15)",
       "Bash(curl -v -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"input\":\"Tokyo for 5 days in April\",\"type\":\"text\"}' --max-time 30)",
       "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"5 days in Lisbon, Portugal in June, culture and food focus\"}' --max-time 30)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('OK' if 'folio' in d else 'ERROR: ' + str\\(d.get\\('error','?'\\)\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('OK' if 'folio' in d else 'ERROR: ' + str\\(d.get\\('error','?'\\)\\)\\)\")",
+      "Bash(curl -sI \"https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/960px-Skyscrapers_of_Shinjuku_2009_January.jpg\")",
+      "Bash(curl -s -X POST http://localhost:8082/api/wayfinder -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"I want to plan a trip to Lisbon\"}],\"folio\":null}' --max-time 15)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"3 days in Lisbon, Portugal. Culture and food, solo, late September.\"}' --max-time 30)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"3 days in Lisbon, Portugal. Culture and food, solo, late September.\"}' --max-time 40)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 30 -v)",
+      "Bash(curl -sI -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 5)",
+      "Bash(curl -v -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 30)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 30)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('has folio:', 'folio' in d, '| keys:', list\\(d.keys\\(\\)\\)[:3]\\)\")",
+      "Bash(curl -s http://localhost:8082/_expo/middleware/api/compose+api.ts)",
+      "Bash(curl -s http://localhost:8082/api/compose -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"test\"}' -D - --max-time 5)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 60 -w '\\\\n\\\\nHTTP_STATUS: %{http_code} | CONTENT_TYPE: %{content_type}')",
+      "Bash(xargs kill -9)",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"2 days in Rome.\"}' --max-time 60 -w '\\\\nStatus: %{http_code} | Type: %{content_type}')",
+      "Bash(npx tsx *)",
+      "Bash(echo \"exit $?\")",
+      "Bash(gh pr *)",
+      "Bash(gh repo *)",
+      "Bash(git checkout *)",
+      "Bash(git cherry-pick *)",
+      "Bash(curl -s -X POST http://localhost:8082/api/wayfinder -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"folio\":null}')",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"5 days in Tokyo in October\"}')"
     ]
   }
 }

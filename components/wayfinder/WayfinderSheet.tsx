@@ -21,6 +21,10 @@ const COMPOSE_INTROS: Record<string, string> = {
   link: 'Paste a link — an Airbnb listing, Google Doc, blog post, or article. I\'ll extract what\'s useful.',
 };
 
+function isEditIntent(text: string): boolean {
+  return /\b(add|include|remove|delete|change|swap|move|replace|book|schedule|update|rebook|cancel|switch|insert|drop|put|shift)\b/i.test(text);
+}
+
 function buildSuggestions(folio?: Folio | null): string[] {
   if (!folio) {
     return [
@@ -30,22 +34,46 @@ function buildSuggestions(folio?: Folio | null): string[] {
       'Hidden gems in southern Italy',
     ];
   }
-  const { destination, country, days, season } = folio;
+  const { destination, country, days, season, vibe } = folio;
   const isUSA = /united states|usa|\bUS\b/i.test(country);
   const suggestions: string[] = [];
 
-  suggestions.push(`What shouldn't I miss in ${destination}?`);
-  suggestions.push(`Best local restaurants in ${destination}`);
-  if (days.length > 2) {
-    suggestions.push(`Any ideas for Day ${Math.min(3, days.length)}?`);
+  // Find days without food events and suggest a dinner option
+  const daysWithoutFood = (days ?? []).filter(day => {
+    if (day.empty) return false;
+    const events = day.events ?? [];
+    const hasFood = events.some((e: any) =>
+      /dinner|lunch|breakfast|restaurant|café|cafe|food|eat/i.test(e.title ?? '') ||
+      /food|dining|restaurant/i.test(e.meta ?? '')
+    );
+    return !hasFood && events.length > 0;
+  });
+  if (daysWithoutFood.length > 0) {
+    const targetDay = daysWithoutFood[0];
+    suggestions.push(`Find a dinner option for Day ${targetDay.n}`);
   }
-  if (!isUSA) {
+
+  suggestions.push(`What shouldn't I miss in ${destination}?`);
+
+  // Vibe-aware suggestion
+  const vibeLower = (vibe ?? '').toLowerCase();
+  if (/culture|history|art/i.test(vibeLower)) {
+    suggestions.push(`Best museums and galleries in ${destination}`);
+  } else if (/food|culinary|eat/i.test(vibeLower)) {
+    suggestions.push(`Best local markets and food neighbourhoods in ${destination}`);
+  } else if (/adventure|outdoor|nature/i.test(vibeLower)) {
+    suggestions.push(`Day trips and outdoor activities near ${destination}`);
+  } else if (!isUSA) {
     suggestions.push(`Do I need a visa for ${country}?`);
   } else {
     suggestions.push(`Best neighbourhoods to stay in ${destination}`);
   }
+
   const seasonLower = (season ?? '').toLowerCase();
   suggestions.push(`What to pack for ${seasonLower || 'the trip'} in ${destination}`);
+
+  // Always include an itinerary edit option
+  suggestions.push(`I'd like to change...`);
 
   return suggestions.slice(0, 4);
 }
@@ -377,12 +405,45 @@ export function WayfinderSheet({
         if (value) {
           const chunk = decoder.decode(value, { stream: true });
           fullText += chunk;
-          const displayText = fullText.replace(/\[COMPOSE:[\s\S]*?\]/g, '').trimEnd();
+          const displayText = fullText
+            .replace(/\[COMPOSE:[\s\S]*?\]/g, '')
+            .replace(/\[EDIT:[\s\S]*?\]/g, '')
+            .trimEnd();
           setMessages(prev => prev.map(m =>
             m.id === replyId ? { ...m, text: displayText } : m
           ));
           scrollRef.current?.scrollToEnd({ animated: false });
         }
+      }
+
+      // In-trip edit detection: folio loaded, not editMode, reply contains [EDIT: ...]
+      const editTagMatch = fullText.match(/\[EDIT:\s*([\s\S]+?)\]/);
+      if (!!folio && !editMode && editTagMatch) {
+        const editContent = editTagMatch[1].trim();
+        const dayBySummary = (folio.days ?? []).map((day: any) => {
+          const events = (day.events ?? []) as Array<any>;
+          if (day.empty || events.length === 0) {
+            return `  Day ${day.n} (${day.date}): ${day.label} — open day`;
+          }
+          const evtSummary = events.map((e: any) => {
+            const parts = [`${e.time ?? '?'} ${e.title}`];
+            if (e.location) parts.push(`at ${e.location}`);
+            return parts.join(' ');
+          }).join(', ');
+          return `  Day ${day.n} (${day.date}): ${day.label} — ${evtSummary}`;
+        }).join('\n');
+        const brief = [
+          `Original trip: ${folio.destination}, ${folio.country} — ${folio.dates} (${folio.duration})`,
+          `Season: ${folio.season} · Vibe: ${folio.vibe}`,
+          `Teaser: ${folio.teaser}`,
+          '',
+          'Current itinerary (preserve everything not mentioned in the change):',
+          dayBySummary,
+          '',
+          `Requested change: ${editContent}`,
+        ].join('\n');
+        setTimeout(() => autoRecompose(brief, true), 600);
+        return;
       }
 
       // Edit mode: after 2 user messages, trigger a recompose
@@ -498,11 +559,14 @@ export function WayfinderSheet({
     }
   }
 
-  async function autoRecompose(brief: string) {
+  async function autoRecompose(brief: string, fromEditIntent?: boolean) {
     setThinking(true);
+    const recomposeMsg = (fromEditIntent && folio)
+      ? `Updating your ${folio.destination} trip…`
+      : 'Rebuilding your folio now…';
     setMessages(prev => [...prev, {
       id: `w-${Date.now()}`, role: 'wayfinder',
-      text: 'Rebuilding your folio now…',
+      text: recomposeMsg,
     }]);
     try {
       const res = await fetch('/api/compose', {
@@ -625,7 +689,11 @@ export function WayfinderSheet({
                 <View style={styles.headerText}>
                   <Text style={styles.headerName}>Wayfinder</Text>
                   <Text style={styles.headerSub}>
-                    {editMode ? 'Editing your folio' : 'Your AI travel concierge'}
+                    {editMode
+                      ? 'Editing your folio'
+                      : folio
+                        ? `About your ${folio.destination} trip`
+                        : 'Your AI travel concierge'}
                   </Text>
                 </View>
               </View>
@@ -758,7 +826,14 @@ export function WayfinderSheet({
                       {suggestions.map((s, i) => (
                         <TouchableOpacity
                           key={i}
-                          onPress={() => send(s)}
+                          onPress={() => {
+                            if (s === `I'd like to change...`) {
+                              setInput(`I'd like to change `);
+                              setTimeout(() => inputRef.current?.focus(), 80);
+                            } else {
+                              send(s);
+                            }
+                          }}
                           style={[styles.suggestionRow, { borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0 }]}
                           activeOpacity={0.6}
                         >

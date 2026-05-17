@@ -12,6 +12,7 @@ import { WishlistTile } from '../../components/home/WishlistTile';
 import { AddTile } from '../../components/home/AddTile';
 import { useWayfinder } from '../../lib/wayfinder-context';
 import { useFolios } from '../../lib/folios-context';
+import { useWishlist } from '../../lib/wishlist-context';
 
 function SmallCaps({ children, style }: { children: string; style?: object }) {
   return (
@@ -22,9 +23,10 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const { openWayfinder } = useWayfinder();
-  const { planned } = useFolios();
+  const { planned, deleteFolio } = useFolios();
+  const { items: wishlistItems, deleteItem: deleteWishlistItem } = useWishlist();
 
-  const hasWishlist = WISHLIST.length > 0;
+  const hasWishlist = wishlistItems.length > 0;
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
@@ -76,6 +78,7 @@ export default function HomeScreen() {
                 folio={folio}
                 theme={T}
                 onOpen={() => router.push({ pathname: '/(app)/trip/[id]', params: { id: folio.id } })}
+                onDelete={() => deleteFolio(folio.id)}
               />
             ))}
             <AddTile theme={T} onPress={() => openWayfinder()} />
@@ -94,8 +97,13 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.hScroll}
               >
-                {WISHLIST.map(item => (
-                  <WishlistTile key={item.id} item={item} theme={T} />
+                {wishlistItems.map(item => (
+                  <WishlistTile
+                    key={item.id}
+                    item={item}
+                    theme={T}
+                    onDelete={() => deleteWishlistItem(item.id)}
+                  />
                 ))}
               </ScrollView>
             </>
@@ -131,6 +139,7 @@ export default function HomeScreen() {
               </View>
             </>
           )}
+
 
           {/* ── PAST TRIPS ── */}
           <View style={[styles.hairline, { backgroundColor: T.hair, marginTop: 8 }]} />

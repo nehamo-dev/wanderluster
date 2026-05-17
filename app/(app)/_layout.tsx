@@ -7,6 +7,7 @@ import { DEFAULT_PALETTE } from '../../constants/theme';
 import { WayfinderContext } from '../../lib/wayfinder-context';
 import { FoliosProvider, useFolios } from '../../lib/folios-context';
 import { SettingsProvider } from '../../lib/settings-context';
+import { WishlistProvider } from '../../lib/wishlist-context';
 import type { Folio } from '../../types';
 
 const T = DEFAULT_PALETTE;
@@ -104,7 +105,9 @@ export default function AppLayout() {
   return (
     <SettingsProvider>
       <FoliosProvider>
-        <AppLayoutInner />
+        <WishlistProvider>
+          <AppLayoutInner />
+        </WishlistProvider>
       </FoliosProvider>
     </SettingsProvider>
   );

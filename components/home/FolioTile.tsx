@@ -1,5 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View, Text, TouchableOpacity, Image, StyleSheet,
+  Modal, Pressable, Platform,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Palette } from '../../constants/theme';
 import type { Folio } from '../../types';
@@ -10,51 +13,111 @@ interface Props {
   folio: Folio;
   theme: Palette;
   onOpen: () => void;
+  onDelete?: () => void;
 }
 
-export function FolioTile({ folio, theme: T, onOpen }: Props) {
+export function FolioTile({ folio, theme: T, onOpen, onDelete }: Props) {
   const photo = getDestinationPhoto(folio.id, folio.destination);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function handleDeletePress() {
+    setMenuOpen(false);
+    setTimeout(() => setConfirmOpen(true), 200);
+  }
+
+  function handleConfirmDelete() {
+    setConfirmOpen(false);
+    onDelete?.();
+  }
 
   return (
-    <TouchableOpacity
-      onPress={onOpen}
-      activeOpacity={0.88}
-      style={[styles.tile, { backgroundColor: T.surface, borderColor: T.hair }]}
-    >
-      <View style={styles.imageContainer}>
-        {photo ? (
-          <>
-            <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
-            <LinearGradient
-              colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.52)']}
-              locations={[0, 0.4, 1]}
-              style={StyleSheet.absoluteFill}
-            />
-          </>
-        ) : (
-          <DestinationArt folio={folio} height={220} />
-        )}
+    <>
+      <TouchableOpacity
+        onPress={onOpen}
+        activeOpacity={0.88}
+        style={[styles.tile, { backgroundColor: T.surface, borderColor: T.hair }]}
+      >
+        <View style={styles.imageContainer}>
+          {photo ? (
+            <>
+              <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
+              <LinearGradient
+                colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.52)']}
+                locations={[0, 0.4, 1]}
+                style={StyleSheet.absoluteFill}
+              />
+            </>
+          ) : (
+            <DestinationArt folio={folio} height={220} />
+          )}
 
-        <View style={[StyleSheet.absoluteFill, styles.labelLayer]}>
-          <View style={styles.topRow}>
-            <Text style={styles.folioLabel}>Folio</Text>
-            <Text style={styles.durationLabel}>{folio.duration}</Text>
-          </View>
-          <View style={styles.bottomOverlay}>
-            <Text style={styles.destinationLabel}>{folio.destination}</Text>
-            <Text style={styles.title}>{folio.title}</Text>
+          <View style={[StyleSheet.absoluteFill, styles.labelLayer]}>
+            <View style={styles.topRow}>
+              <Text style={styles.folioLabel}>Folio</Text>
+              <View style={styles.topRight}>
+                <Text style={styles.durationLabel}>{folio.duration}</Text>
+                {onDelete && (
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation?.(); setMenuOpen(true); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.menuBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.menuDots}>⋯</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            <View style={styles.bottomOverlay}>
+              <Text style={styles.destinationLabel}>{folio.destination}</Text>
+              <Text style={styles.title}>{folio.title}</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.meta}>
-        <View style={styles.metaLeft}>
-          <Text style={[styles.dates, { color: T.ink }]}>{folio.dates}</Text>
-          <Text style={[styles.vibe, { color: T.muted }]}>{folio.vibe}</Text>
+        <View style={styles.meta}>
+          <View style={styles.metaLeft}>
+            <Text style={[styles.dates, { color: T.ink }]}>{folio.dates}</Text>
+            <Text style={[styles.vibe, { color: T.muted }]}>{folio.vibe}</Text>
+          </View>
+          <Text style={[styles.arrow, { color: T.ink }]}>→</Text>
         </View>
-        <Text style={[styles.arrow, { color: T.ink }]}>→</Text>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Context menu */}
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuScrim} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menuCard}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleDeletePress} activeOpacity={0.7}>
+              <Text style={styles.menuItemDelete}>Delete folio</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => setMenuOpen(false)} activeOpacity={0.7}>
+              <Text style={styles.menuItemCancel}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Confirm delete */}
+      <Modal transparent visible={confirmOpen} animationType="fade" onRequestClose={() => setConfirmOpen(false)}>
+        <Pressable style={styles.menuScrim} onPress={() => setConfirmOpen(false)}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Delete "{folio.title}"?</Text>
+            <Text style={styles.confirmSub}>This folio and all its days will be removed.</Text>
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setConfirmOpen(false)} activeOpacity={0.7}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmDelete} onPress={handleConfirmDelete} activeOpacity={0.7}>
+                <Text style={styles.confirmDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -66,7 +129,8 @@ const styles = StyleSheet.create({
   imageContainer: { position: 'relative', height: 220 },
   photo: { width: '100%', height: 220 },
   labelLayer: { justifyContent: 'space-between' },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 14 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folioLabel: {
     color: '#f5efe2', fontSize: 9,
     letterSpacing: 3.5, textTransform: 'uppercase', fontFamily: 'monospace', opacity: 0.9,
@@ -75,6 +139,11 @@ const styles = StyleSheet.create({
     color: '#f5efe2', fontSize: 9,
     letterSpacing: 3, textTransform: 'uppercase', fontFamily: 'monospace', opacity: 0.9,
   },
+  menuBtn: {
+    width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 12,
+  },
+  menuDots: { color: '#fff', fontSize: 12, letterSpacing: 1 },
   bottomOverlay: { padding: 14 },
   destinationLabel: {
     color: '#f5efe2', fontSize: 9,
@@ -92,4 +161,41 @@ const styles = StyleSheet.create({
   dates: { fontSize: 12.5, letterSpacing: -0.15 },
   vibe: { fontSize: 10.5, letterSpacing: 0.3, marginTop: 2 },
   arrow: { fontSize: 14 },
+
+  // Menu
+  menuScrim: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.32)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  menuCard: {
+    width: 220, backgroundColor: '#F7F5F0',
+    borderRadius: 14, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16, shadowRadius: 24, elevation: 16,
+  },
+  menuItem: { paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center' },
+  menuItemDelete: { fontSize: 15, color: '#c0392b', letterSpacing: -0.2 },
+  menuItemCancel: { fontSize: 15, color: 'rgba(0,0,0,0.45)', letterSpacing: -0.2 },
+  menuDivider: { height: 0.5, backgroundColor: 'rgba(0,0,0,0.10)' },
+
+  // Confirm
+  confirmCard: {
+    width: 280, backgroundColor: '#F7F5F0',
+    borderRadius: 16, padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16, shadowRadius: 24, elevation: 16,
+  },
+  confirmTitle: { fontSize: 16, fontWeight: '500', color: '#1a1210', letterSpacing: -0.3, marginBottom: 8 },
+  confirmSub: { fontSize: 13, color: 'rgba(0,0,0,0.45)', lineHeight: 19, marginBottom: 20 },
+  confirmBtns: { flexDirection: 'row', gap: 10 },
+  confirmCancel: {
+    flex: 1, paddingVertical: 11, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.07)', alignItems: 'center',
+  },
+  confirmCancelText: { fontSize: 14, color: 'rgba(0,0,0,0.55)', fontWeight: '500' },
+  confirmDelete: {
+    flex: 1, paddingVertical: 11, borderRadius: 10,
+    backgroundColor: '#c0392b', alignItems: 'center',
+  },
+  confirmDeleteText: { fontSize: 14, color: '#fff', fontWeight: '500' },
 });

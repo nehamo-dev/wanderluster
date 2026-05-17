@@ -135,6 +135,22 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 
 ---
 
+## 11. Wayfinder — in-trip contextual mode
+
+- [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the header subtitle (not "Your AI travel concierge")
+- [ ] Header subtitle shows "Editing your folio" when editMode is true
+- [ ] Asking a question (e.g. "what's the weather like in Tokyo in spring?") gets a conversational reply — no trip update is triggered, no `[EDIT:]` in reply
+- [ ] Asking to add something (e.g. "add a sushi dinner on Day 2") gets a 1–2 sentence confirmation reply, then "Updating your [destination] trip…" appears
+- [ ] After the update message, the trip is rebuilt and the updated itinerary is visible without reopening the screen
+- [ ] Suggestions shown in folio mode are specific to the trip's destination city (not generic)
+- [ ] If any days have no food events, "Find a dinner option for Day X" appears as a suggestion for the first such day
+- [ ] Tapping "I'd like to change..." pre-fills the input with "I'd like to change " and focuses the input — it does NOT send immediately
+- [ ] `[EDIT: ...]` tag is never visible in the chat UI — stripped from the displayed reply
+- [ ] `[COMPOSE:]` tag is never visible in the chat UI — stripped from the displayed reply
+- [ ] Wayfinder suggestions are destination-specific and not recycled from the no-folio state
+
+---
+
 ## 10. Reported bugs tracker
 
 Add every bug reported by the user here so it gets a regression test.

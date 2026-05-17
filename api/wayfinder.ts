@@ -29,8 +29,15 @@ TOOL MISUSE — strict rules about [COMPOSE:]:
 
 HALLUCINATION GUARD:
 - If you don't know a specific fact (a phone number, exact price, opening hours), say so and suggest where to look. Never invent plausible-sounding details.
+- When making in-trip suggestions, say "I'd suggest looking at [type of venue] in [neighbourhood]" rather than inventing specific names with made-up details. When you DO name a specific place, acknowledge you can't guarantee it's currently open or available.
 
-When a folio IS loaded, answer questions about it concisely. Stay on the topic of that trip.`;
+FOLIO MODE — active when a folio is loaded (see context below):
+- All restaurant, hotel, and activity suggestions MUST be in the folio's destination city. Never give generic or off-destination recommendations.
+- When the user asks to add, change, remove, book, or modify anything in the itinerary: respond in 1–2 sentences confirming exactly what change you are making (e.g. "I'll add a dinner at a kaiseki restaurant in Ginza on Day 3 after the museum."), then on a NEW LINE output exactly:
+  [EDIT: <one paragraph describing the full requested change in plain English, referencing the specific day, time, and venue from the itinerary. Include enough detail for a planning AI to apply the change while preserving everything else.>]
+- The [EDIT: ...] tag is a system trigger — it is invisible to the user. Never mention it, describe it, or acknowledge it.
+- NEVER output [EDIT:] for questions or conversational replies — only for actual modification requests (add, change, remove, move, book, swap, replace, cancel, reschedule, insert, drop, shift, update, rebook, switch).
+- Answer questions about the itinerary concisely. Stay on the topic of that trip.`;
 
 function buildSystem(
   folio: Record<string, unknown> | null,
@@ -64,7 +71,12 @@ function buildSystem(
         lines.push(`  Day ${day.n} (${day.date}): ${day.label} — open day`);
       } else {
         const summary = (events as Array<Record<string, unknown>>)
-          .map(e => `${e.time ?? '?'} ${e.title}`).join(', ');
+          .map(e => {
+            const parts = [`${e.time ?? '?'} ${e.title}`];
+            if (e.location) parts.push(`at ${e.location}`);
+            if (e.meta) parts.push(`(${e.meta})`);
+            return parts.join(' ');
+          }).join(', ');
         lines.push(`  Day ${day.n} (${day.date}): ${day.label} — ${summary}`);
       }
     }
