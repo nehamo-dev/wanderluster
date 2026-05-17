@@ -24,8 +24,11 @@ function SmallCaps({ children, color, size = 10 }: { children: string; color: st
 export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const folio = FOLIOS[id ?? 'tokyo'];
-  const { deleteFolio } = useFolios();
-  const { editFolio } = useWayfinder();
+  const { deleteFolio, planned } = useFolios();
+  const { editFolio, openWayfinder } = useWayfinder();
+
+  // Is this an inspiration / past-trip folio (not user-created)?
+  const isInspirationFolio = !planned.some(f => f.id === (id ?? ''));
 
   const [activeDay, setActiveDay] = useState(1);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1, 2]));
@@ -186,15 +189,19 @@ export default function TripScreen() {
               </TouchableOpacity>
               <View style={styles.navRight}>
                 <View style={styles.folioBadge}>
-                  <Text style={styles.folioBadgeText}>Folio · Draft</Text>
+                  <Text style={styles.folioBadgeText}>
+                    {isInspirationFolio ? 'Inspiration' : 'Folio · Draft'}
+                  </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => setMenuVisible(true)}
-                  style={styles.menuBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.menuDots}>⋯</Text>
-                </TouchableOpacity>
+                {!isInspirationFolio && (
+                  <TouchableOpacity
+                    onPress={() => setMenuVisible(true)}
+                    style={styles.menuBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.menuDots}>⋯</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </SafeAreaView>
@@ -212,6 +219,18 @@ export default function TripScreen() {
               <View style={styles.heroDot} />
               <Text style={styles.heroPillText}>{folio.vibe}</Text>
             </View>
+            {isInspirationFolio && (
+              <TouchableOpacity
+                onPress={() => openWayfinder(
+                  `I'd like to plan a trip to ${folio.destination} — ${folio.duration}, ${folio.season}. ${folio.vibe}.`
+                )}
+                style={styles.planBtn}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.planBtnText}>Plan this trip</Text>
+                <Text style={styles.planBtnArrow}>→</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -447,6 +466,16 @@ const styles = StyleSheet.create({
   },
   heroPillText: { color: '#f5efe2', fontSize: 12, letterSpacing: 0.6 },
   heroDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#f5efe2', opacity: 0.6 },
+  planBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginTop: 18,
+    backgroundColor: '#f5efe2', borderRadius: 10,
+    paddingVertical: 13, paddingHorizontal: 20,
+  },
+  planBtnText: {
+    color: '#1a1210', fontSize: 14, fontWeight: '500', letterSpacing: -0.2,
+  },
+  planBtnArrow: { color: '#1a1210', fontSize: 16 },
   px: { paddingHorizontal: 16 },
   wayfinderNote: {
     flexDirection: 'row', gap: 12,

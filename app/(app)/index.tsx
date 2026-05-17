@@ -22,7 +22,7 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
 
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const { openWayfinder } = useWayfinder();
+  const { openWayfinder, editFolio } = useWayfinder();
   const { planned, deleteFolio } = useFolios();
   const { items: wishlistItems, deleteItem: deleteWishlistItem } = useWishlist();
 
@@ -102,6 +102,9 @@ export default function HomeScreen() {
                     key={item.id}
                     item={item}
                     theme={T}
+                    onPress={() => openWayfinder(
+                      `I'd like to plan a trip to ${item.name} — ${item.season}, ${item.vibe}. ${item.flight} away.`
+                    )}
                     onDelete={() => deleteWishlistItem(item.id)}
                   />
                 ))}

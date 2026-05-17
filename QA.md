@@ -167,6 +167,21 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 
 ---
 
+## 13. Inspiration & Wishlist → Real Trip Conversion
+
+- [ ] Tapping an Inspiration tile navigates to the trip detail screen
+- [ ] Trip detail for an inspiration folio shows "Inspiration" badge (not "Folio · Draft")
+- [ ] Trip detail for an inspiration folio does NOT show the ⋯ menu button
+- [ ] "Plan this trip" button is visible at the bottom of the hero on inspiration folios
+- [ ] Tapping "Plan this trip" opens Wayfinder with destination pre-filled in the input (e.g. "I'd like to plan a trip to Tokyo — 10 days, Late spring...")
+- [ ] Wayfinder opens in create mode (not edit mode) when triggered from an inspiration tile
+- [ ] Trip detail for a user-created folio still shows "Folio · Draft" badge and ⋯ menu
+- [ ] Tapping a Wishlist tile opens Wayfinder with destination pre-filled (e.g. "I'd like to plan a trip to Patagonia — Winter, adventure...")
+- [ ] The ⋯ delete button on a Wishlist tile still works (does not accidentally open Wayfinder)
+- [ ] After creating a trip from inspiration/wishlist, the new folio appears in "Your Plans" on the home screen
+
+---
+
 ## 10. Reported bugs tracker
 
 Add every bug reported by the user here so it gets a regression test.

@@ -8,10 +8,11 @@ import { WISHLIST_PHOTOS } from '../../constants/photos';
 interface Props {
   item: WishlistItem;
   theme: Palette;
+  onPress?: () => void;
   onDelete?: () => void;
 }
 
-export function WishlistTile({ item, theme: T, onDelete }: Props) {
+export function WishlistTile({ item, theme: T, onPress, onDelete }: Props) {
   const photo = WISHLIST_PHOTOS[item.id] ?? (item as any).photo;
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -23,7 +24,11 @@ export function WishlistTile({ item, theme: T, onDelete }: Props) {
 
   return (
     <>
-      <View style={[styles.tile, { backgroundColor: T.surface, borderColor: T.hair }]}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={onPress ? 0.88 : 1}
+        style={[styles.tile, { backgroundColor: T.surface, borderColor: T.hair }]}
+      >
         <View style={styles.imageContainer}>
           {photo ? (
             <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
@@ -39,7 +44,7 @@ export function WishlistTile({ item, theme: T, onDelete }: Props) {
           </View>
           {onDelete && (
             <TouchableOpacity
-              onPress={() => setMenuOpen(true)}
+              onPress={(e) => { e.stopPropagation?.(); setMenuOpen(true); }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.menuBtn}
               activeOpacity={0.7}
@@ -55,7 +60,7 @@ export function WishlistTile({ item, theme: T, onDelete }: Props) {
             {item.season} · {item.flight}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Context menu */}
       <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
