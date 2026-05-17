@@ -63,7 +63,20 @@ DATES: Calculate the correct day of week using today's date. Format: "Mon · Mar
 - highlights: 3–5 folio-level bullet points
 - Pure JSON only — no markdown fences
 - CONSISTENCY: produce the same number of days every time for the same input.
-- TOOL MISUSE: if the input looks like a question, still produce a best-guess folio — do not return conversational text.`;
+- TOOL MISUSE: if the input looks like a question, still produce a best-guess folio — do not return conversational text.
+
+FLIGHT ROUTING — follow these rules exactly for every flight event:
+1. REAL ROUTES ONLY: Only include flight routes that are actually served by commercial airlines. Use your training knowledge to verify the route exists. If a direct route does not exist, do not invent one.
+2. DIRECT FIRST: Always prefer a direct (nonstop) flight. If a direct flight exists, use routeType "direct".
+3. CONNECTING FLIGHTS: If no direct route exists, route through the most logical real hub (e.g. LHR, CDG, FRA, DXB, DOH, SIN, NRT, JFK, LAX). Use routeType "connecting". Never invent connection cities.
+4. SURFACE TRANSPORT: If the origin and destination are within ~400km, or if no air service exists at all, use kind "transport" (not "flight") and describe the train, bus, or drive instead. Use routeType "surface".
+5. routeNote field (required for every flight event): a short string like "Direct · ~11h", "Via Dubai · ~16h total", or "No direct service — routed via Frankfurt". For surface: "Train · ~2h30" or "Drive · ~3h".
+6. NEVER invent flight numbers for suggested flights. Confirmed flights (suggested:false) may include user-provided flight numbers.
+7. IATA codes: Only use real IATA airport codes. Never invent codes.
+8. REALISTIC TIMES: Minimum 1h30 for domestic connections, 2h for international connections. Never show a connection time shorter than this.
+9. UNCERTAINTY: If you are not certain a route is served, add a tip: "Verify this route before booking — service may be seasonal or limited."
+- routeNote: short routing summary, required for kind "flight" and surface alternatives
+- routeType: "direct" | "connecting" | "surface" — required for kind "flight"`;
 }
 
 async function fetchUrl(url: string): Promise<string> {

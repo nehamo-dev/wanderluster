@@ -67,7 +67,9 @@
       "Bash(git checkout *)",
       "Bash(git cherry-pick *)",
       "Bash(curl -s -X POST http://localhost:8082/api/wayfinder -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"folio\":null}')",
-      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"5 days in Tokyo in October\"}')"
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"5 days in Tokyo in October\"}')",
+      "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"3 days Paris to Amsterdam\"}')",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

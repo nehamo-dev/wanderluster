@@ -16,6 +16,8 @@ export interface TripEvent {
   location?: string;     // neighbourhood or address for map link
   rating?: number;       // 0–5
   reason?: string;       // why this was suggested
+  routeNote?: string;    // flight only: "Direct · ~11h", "Via FRA · ~14h", "No direct — via London"
+  routeType?: 'direct' | 'connecting' | 'surface'; // flight routing type
 }
 
 export interface TripDay {

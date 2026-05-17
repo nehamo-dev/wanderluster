@@ -128,6 +128,20 @@ export function EventRow({
             ) : event.rating != null ? (
               <Text style={[styles.rating, { color: T.sub }]}>{event.rating.toFixed(1)} ★</Text>
             ) : null}
+            {event.kind === 'flight' && event.routeNote && (
+              <View style={styles.routeNoteRow}>
+                <Text style={[styles.routeNoteIcon, {
+                  color: event.routeType === 'direct' ? T.accent
+                    : event.routeType === 'surface' ? T.sub : T.muted,
+                }]}>
+                  {event.routeType === 'direct' ? '→' : event.routeType === 'surface' ? '≈' : '⤳'}
+                </Text>
+                <Text style={[styles.routeNote, { color: T.muted }]}>{event.routeNote}</Text>
+              </View>
+            )}
+            {event.kind === 'flight' && isSuggested && (
+              <Text style={[styles.verifyNote, { color: T.muted }]}>Verify before booking</Text>
+            )}
           </View>
 
           {/* suggested: + / × */}
@@ -330,4 +344,14 @@ const styles = StyleSheet.create({
   mapPin: { fontSize: 13, lineHeight: 16 },
   mapText: { fontSize: 12, letterSpacing: -0.1, textDecorationLine: 'underline', flex: 1 },
   mapArrow: { fontSize: 11, flexShrink: 0 },
+
+  // Flight routing
+  routeNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  routeNoteIcon: { fontSize: 10, width: 12, textAlign: 'center' },
+  routeNote: { fontSize: 11, letterSpacing: -0.05 },
+  verifyNote: {
+    fontSize: 10, letterSpacing: 0.3,
+    textTransform: 'uppercase', fontFamily: 'monospace',
+    marginTop: 3, opacity: 0.7,
+  },
 });

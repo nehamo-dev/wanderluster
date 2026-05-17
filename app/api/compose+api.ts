@@ -88,7 +88,20 @@ OTHER RULES:
 - tldr: 2–3 sentences on overall rhythm and character
 - Pure JSON only — no markdown fences
 - CONSISTENCY: produce the same number of days every time for the same input. Do not randomly vary duration.
-- TOOL MISUSE: if the input is a question rather than a trip description, still produce a best-guess folio — do not return an error message or a conversational reply.`;
+- TOOL MISUSE: if the input is a question rather than a trip description, still produce a best-guess folio — do not return an error message or a conversational reply.
+
+FLIGHT ROUTING — follow these rules exactly for every flight event:
+1. REAL ROUTES ONLY: Only include flight routes that are actually served by commercial airlines. Use your training knowledge to verify the route exists. If a direct route does not exist, do not invent one.
+2. DIRECT FIRST: Always prefer a direct (nonstop) flight. If a direct flight exists, use routeType "direct".
+3. CONNECTING FLIGHTS: If no direct route exists, route through the most logical real hub (e.g. LHR, CDG, FRA, DXB, DOH, SIN, NRT, JFK, LAX). Use routeType "connecting". Never invent connection cities.
+4. SURFACE TRANSPORT: If the origin and destination are within ~400km, or if no air service exists at all, use kind "transport" (not "flight") and describe the train, bus, or drive. Use routeType "surface".
+5. routeNote field (required for every flight event): e.g. "Direct · ~11h", "Via Dubai · ~16h total", "No direct — via Frankfurt", or "Drive · ~3h".
+6. NEVER invent flight numbers for suggested flights. User-provided flight numbers (suggested:false) are kept as-is.
+7. IATA codes: Only use real IATA airport codes. Never invent codes.
+8. REALISTIC TIMES: Minimum 1h30 for domestic connections, 2h for international. Never show shorter.
+9. UNCERTAINTY: If uncertain a route is served, add a tip: "Verify this route before booking — service may be seasonal."
+- routeNote: short routing summary — required for kind "flight"
+- routeType: "direct" | "connecting" | "surface" — required for kind "flight"`;
 }
 
 async function fetchUrl(url: string): Promise<string> {

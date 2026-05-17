@@ -151,6 +151,22 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 
 ---
 
+## 12. Flight routing & smart transport
+
+- [ ] Creating a trip with a realistic long-haul route (e.g. Seattle → Tokyo) generates a flight event with `routeType: "direct"` and `routeNote` like "Direct · ~10h"
+- [ ] Creating a trip with no direct service (e.g. Seattle → Dubrovnik) generates a connecting flight with `routeType: "connecting"` and `routeNote` naming the hub (e.g. "Via Frankfurt · ~14h")
+- [ ] Short-haul trip within ~400km (e.g. Paris → Amsterdam) generates a `kind: "transport"` event (train/drive), NOT a flight
+- [ ] Suggested flight events show "Verify before booking" label in the trip detail view
+- [ ] Confirmed (user-provided) flight events do NOT show "Verify before booking"
+- [ ] `routeNote` is displayed on flight events: "→" for direct, "⤳" for connecting, "≈" for surface
+- [ ] Wayfinder asked "how do I get from Seattle to Dubrovnik?" responds with connecting route via a real hub, mentions no direct service
+- [ ] Wayfinder asked "can I fly direct from London to New York?" confirms direct service exists on major carriers
+- [ ] Wayfinder asked about a short drive/train route proactively suggests surface transport with duration
+- [ ] No invented IATA codes appear in any generated flight events
+- [ ] No flight event has a connection time shorter than 1h30 (domestic) or 2h (international)
+
+---
+
 ## 10. Reported bugs tracker
 
 Add every bug reported by the user here so it gets a regression test.
