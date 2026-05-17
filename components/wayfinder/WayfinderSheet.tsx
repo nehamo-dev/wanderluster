@@ -12,6 +12,7 @@ import { generateTripPalette } from '../../constants/theme';
 import { useFolios } from '../../lib/folios-context';
 import { useSettings } from '../../lib/settings-context';
 import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
+import { fetchWikiPhoto } from '../../constants/photos';
 
 type ComposeMode = 'screenshots' | 'words' | 'link' | null;
 
@@ -328,9 +329,11 @@ export function WayfinderSheet({
         }
       }
       const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
+      const photo = await fetchWikiPhoto(raw.destination ?? '').catch(() => null);
       const id = addFolio({
         ...raw,
         palette,
+        photo: photo ?? undefined,
         title: raw.title ?? raw.destination,
         days: (raw.days ?? []).map((d: any) => ({
           ...d,
@@ -532,8 +535,10 @@ export function WayfinderSheet({
         raw = extractAndParseFolio(rawText);
       }
       const palette = raw.palette ?? generateTripPalette(raw.destination ?? 'trip');
+      const photo = await fetchWikiPhoto(raw.destination ?? '').catch(() => null);
       const id = addFolio({
         ...raw, palette,
+        photo: photo ?? undefined,
         title: raw.title ?? raw.destination,
         days: (raw.days ?? []).map((d: any) => ({
           ...d,

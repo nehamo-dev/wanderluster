@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Image, StyleSheet,
-  Modal, Pressable, Platform,
+  Modal, Pressable, Platform, Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Palette } from '../../constants/theme';
@@ -17,9 +17,25 @@ interface Props {
 }
 
 export function FolioTile({ folio, theme: T, onOpen, onDelete }: Props) {
-  const photo = getDestinationPhoto(folio.id, folio.destination);
+  // Priority: stored photo → static map → art fallback
+  const photo = folio.photo ?? getDestinationPhoto(folio.id, folio.destination);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (photo && !imageLoaded) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+          Animated.timing(shimmerAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
+        ])
+      ).start();
+    }
+  }, [photo]);
+
+  const shimmerOpacity = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.85] });
 
   function handleDeletePress() {
     setMenuOpen(false);
@@ -41,12 +57,24 @@ export function FolioTile({ folio, theme: T, onOpen, onDelete }: Props) {
         <View style={styles.imageContainer}>
           {photo ? (
             <>
-              <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
-              <LinearGradient
-                colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.52)']}
-                locations={[0, 0.4, 1]}
-                style={StyleSheet.absoluteFill}
+              {!imageLoaded && (
+                <Animated.View
+                  style={[styles.skeleton, { backgroundColor: T.surface, opacity: shimmerOpacity }]}
+                />
+              )}
+              <Image
+                source={{ uri: photo }}
+                style={[styles.photo, !imageLoaded && styles.photoHidden]}
+                resizeMode="cover"
+                onLoad={() => setImageLoaded(true)}
               />
+              {imageLoaded && (
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.52)']}
+                  locations={[0, 0.4, 1]}
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
             </>
           ) : (
             <DestinationArt folio={folio} height={220} />
@@ -128,6 +156,8 @@ const styles = StyleSheet.create({
   },
   imageContainer: { position: 'relative', height: 220 },
   photo: { width: '100%', height: 220 },
+  photoHidden: { opacity: 0 },
+  skeleton: { ...StyleSheet.absoluteFillObject },
   labelLayer: { justifyContent: 'space-between' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },

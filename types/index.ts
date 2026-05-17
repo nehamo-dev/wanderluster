@@ -51,6 +51,7 @@ export interface Folio {
   teaser: string;
   tldr?: string;         // one paragraph: what to expect overall
   highlights?: string[]; // 3–5 bullet points
+  photo?: string;        // hero photo URL (Wikipedia/Wikimedia), fetched at creation time
   days: TripDay[];
   docs: TripDoc[];
 }

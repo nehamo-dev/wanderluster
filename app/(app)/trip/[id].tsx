@@ -35,7 +35,7 @@ export default function TripScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [wikiPhoto, setWikiPhoto] = useState<string | null>(null);
 
-  const staticPhoto = folio ? getDestinationPhoto(folio.id, folio.destination) : null;
+  const staticPhoto = folio ? (folio.photo ?? getDestinationPhoto(folio.id, folio.destination)) : null;
   const heroPhoto = staticPhoto ?? wikiPhoto;
 
   useEffect(() => {
