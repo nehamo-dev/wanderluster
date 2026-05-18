@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { DEFAULT_PALETTE as T } from '../../constants/theme';
 import { useSettings } from '../../lib/settings-context';
 import { useFolios } from '../../lib/folios-context';
@@ -312,10 +313,10 @@ function PrefsSheet({ visible, initialTags, initialNote, onSave, onClose }: Pref
 }
 
 // ─── Icon circles ─────────────────────────────────────────────────────────────
-function IconCircle({ bg, children }: { bg: string; children: string }) {
+function IconCircle({ bg, name, color = '#fff' }: { bg: string; name: React.ComponentProps<typeof Ionicons>['name']; color?: string }) {
   return (
     <View style={[styles.iconCircle, { backgroundColor: bg }]}>
-      <Text style={styles.iconGlyph}>{children}</Text>
+      <Ionicons name={name} size={18} color={color} />
     </View>
   );
 }
@@ -444,7 +445,7 @@ export default function SettingsScreen() {
               activeOpacity={0.7}
               style={styles.profileRow}
             >
-              <IconCircle bg="#1a1210">🏠</IconCircle>
+              <IconCircle bg="#1a1210" name="home-outline" />
               <View style={styles.profileText}>
                 <Text style={[styles.profileLabel, { color: T.muted }]}>Home city</Text>
                 {loading ? <Skeleton /> : hasCity
@@ -463,7 +464,7 @@ export default function SettingsScreen() {
               activeOpacity={0.7}
               style={styles.profileRow}
             >
-              <IconCircle bg="#1a1210">♥</IconCircle>
+              <IconCircle bg="#1a1210" name="heart-outline" />
               <View style={styles.profileText}>
                 <Text style={[styles.profileLabel, { color: T.muted }]}>Travel preferences</Text>
                 {loading ? <Skeleton /> : (hasTags || hasNote)
@@ -495,7 +496,7 @@ export default function SettingsScreen() {
               style={styles.connectorRow}
             >
               <View style={[styles.connectorIcon, { backgroundColor: '#E8F5E9' }]}>
-                <Text style={styles.connectorGlyph}>📅</Text>
+                <Ionicons name="calendar-outline" size={20} color="#2E7D32" />
               </View>
               <View style={styles.connectorText}>
                 <Text style={[styles.connectorName, { color: T.ink }]}>Google Calendar</Text>
@@ -532,7 +533,7 @@ export default function SettingsScreen() {
               style={styles.connectorRow}
             >
               <View style={[styles.connectorIcon, { backgroundColor: '#FDE8E8' }]}>
-                <Text style={styles.connectorGlyph}>✉</Text>
+                <Ionicons name="mail-outline" size={20} color="#C62828" />
               </View>
               <View style={styles.connectorText}>
                 <Text style={[styles.connectorName, { color: T.ink }]}>Gmail</Text>
@@ -652,7 +653,6 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  iconGlyph: { fontSize: 15 },
   profileText: { flex: 1, gap: 3 },
   profileLabel: { fontSize: 11, letterSpacing: 0.1 },
   profileValue: { fontSize: 14, letterSpacing: -0.2, fontWeight: '500' },
@@ -674,7 +674,6 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  connectorGlyph: { fontSize: 17 },
   connectorText: { flex: 1 },
   connectorName: { fontSize: 14, letterSpacing: -0.2, fontWeight: '500' },
   connectorSub: { fontSize: 12, letterSpacing: -0.1, marginTop: 2 },
