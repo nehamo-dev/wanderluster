@@ -5,7 +5,9 @@ const SETTINGS_KEY = 'wl-settings';
 
 export interface UserSettings {
   homeCity: string;
-  travelPreferences: string;
+  homeCityCoords?: { lat: number; lng: number };
+  travelPreferences: string;   // freeform note
+  travelTags: string[];        // structured quick-add chips
   googleConnected: boolean;
   googleAccessToken?: string;
 }
@@ -13,6 +15,7 @@ export interface UserSettings {
 const DEFAULT_SETTINGS: UserSettings = {
   homeCity: '',
   travelPreferences: '',
+  travelTags: [],
   googleConnected: false,
 };
 
