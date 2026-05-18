@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet,
@@ -11,7 +11,6 @@ import { FolioTile } from '../../components/home/FolioTile';
 import { WishlistTile } from '../../components/home/WishlistTile';
 import { AddTile } from '../../components/home/AddTile';
 import { AddWishlistTile } from '../../components/home/AddWishlistTile';
-import { WishlistComposerSheet } from '../../components/wishlist/WishlistComposerSheet';
 import { useWayfinder } from '../../lib/wayfinder-context';
 import { useFolios } from '../../lib/folios-context';
 import { useWishlist } from '../../lib/wishlist-context';
@@ -24,10 +23,9 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
 
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const { openWayfinder, editFolio } = useWayfinder();
+  const { openWayfinder, openWishlist, editFolio } = useWayfinder();
   const { planned, deleteFolio } = useFolios();
-  const { items: wishlistItems, addItem: addWishlistItem, deleteItem: deleteWishlistItem } = useWishlist();
-  const [wishlistComposerOpen, setWishlistComposerOpen] = useState(false);
+  const { items: wishlistItems, deleteItem: deleteWishlistItem } = useWishlist();
 
   const hasWishlist = wishlistItems.length > 0;
 
@@ -111,7 +109,7 @@ export default function HomeScreen() {
                     onDelete={() => deleteWishlistItem(item.id)}
                   />
                 ))}
-                <AddWishlistTile theme={T} onPress={() => setWishlistComposerOpen(true)} />
+                <AddWishlistTile theme={T} onPress={() => openWishlist()} />
               </ScrollView>
             </>
           )}
@@ -146,7 +144,7 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.hScroll}
               >
-                <AddWishlistTile theme={T} onPress={() => setWishlistComposerOpen(true)} />
+                <AddWishlistTile theme={T} onPress={() => openWishlist()} />
               </ScrollView>
             </>
           )}
@@ -180,11 +178,6 @@ export default function HomeScreen() {
         </SafeAreaView>
       </ScrollView>
 
-      <WishlistComposerSheet
-        visible={wishlistComposerOpen}
-        onAdd={(item) => { addWishlistItem(item); }}
-        onClose={() => setWishlistComposerOpen(false)}
-      />
     </View>
   );
 }

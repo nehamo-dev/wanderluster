@@ -11,6 +11,7 @@ import { FOLIOS, WAYFINDER_GREETINGS } from '../../data/mock';
 import { generateTripPalette } from '../../constants/theme';
 import { useFolios } from '../../lib/folios-context';
 import { useSettings } from '../../lib/settings-context';
+import { useWishlist } from '../../lib/wishlist-context';
 import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
 import { fetchWikiPhoto } from '../../constants/photos';
 
@@ -165,14 +166,16 @@ interface Props {
   folioId?: string;
   composeMode?: ComposeMode;
   editMode?: boolean;
+  wishlistMode?: boolean;
   onUpdate?: (folio: Folio) => void;
 }
 
 export function WayfinderSheet({
   theme: T, open, onClose, seedQuestion, folioId, composeMode,
-  editMode = false, onUpdate,
+  editMode = false, wishlistMode = false, onUpdate,
 }: Props) {
   const { addFolio } = useFolios();
+  const { addItem: addWishlistItem } = useWishlist();
   const { settings } = useSettings();
   const folio = folioId ? (FOLIOS[folioId] ?? null) : null;
 
@@ -213,7 +216,7 @@ export function WayfinderSheet({
     setImageData(null);
     setImagePreview(null);
     setInput(composeMode === 'link' ? 'https://' : '');
-  }, [folioId, composeMode, editMode]);
+  }, [folioId, composeMode, editMode, wishlistMode]);
 
   useEffect(() => {
     if (seedQuestion) setInput(seedQuestion);
@@ -265,6 +268,59 @@ export function WayfinderSheet({
   async function sendCompose(text: string) {
     const hasImage = !!imageData;
     if (!text.trim() && !hasImage) return;
+
+    // ── Wishlist mode: create a WishlistItem, not a full Folio ──────────
+    if (wishlistMode) {
+      const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text };
+      setMessages(prev => [...prev, userMsg]);
+      setInput('');
+      setFileName(null);
+      setImageData(null);
+      setImagePreview(null);
+      setThinking(true);
+      setComposed(true);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+
+      try {
+        const res = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ destination: text }),
+        });
+
+        if (!res.ok) {
+          let errMsg = `API returned ${res.status}`;
+          try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+          setThinking(false);
+          setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: errMsg }]);
+          return;
+        }
+
+        const data = await res.json();
+        setThinking(false);
+
+        const photo = await fetchWikiPhoto(data.name ?? text).catch(() => null);
+        addWishlistItem({
+          ...data,
+          id: `wl-${Date.now()}`,
+          photo: photo ?? undefined,
+        });
+
+        setMessages(prev => [...prev, {
+          id: `w-${Date.now()}`, role: 'wayfinder',
+          text: `${data.name ?? text} added to your wishlist ✦`,
+        }]);
+        setTimeout(() => onClose(), 1400);
+      } catch (err: any) {
+        console.error('[sendCompose/wishlist]', err);
+        setThinking(false);
+        setMessages(prev => [...prev, {
+          id: `w-${Date.now()}`, role: 'wayfinder',
+          text: `Couldn't add to wishlist. Try again.`,
+        }]);
+      }
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`, role: 'user',
@@ -649,7 +705,7 @@ export function WayfinderSheet({
   function send(override?: string) {
     const text = (override ?? input).trim();
     if (!text && !imageData) return;
-    if (effectiveMode && !composed) {
+    if ((wishlistMode || effectiveMode) && !composed) {
       sendCompose(text);
     } else {
       sendChat(text);
@@ -702,9 +758,11 @@ export function WayfinderSheet({
                   <Text style={styles.headerSub}>
                     {editMode
                       ? 'Editing your folio'
-                      : folio
-                        ? `About your ${folio.destination} trip`
-                        : 'Your AI travel concierge'}
+                      : wishlistMode
+                        ? 'Add to wishlist'
+                        : folio
+                          ? `About your ${folio.destination} trip`
+                          : 'Your AI travel concierge'}
                   </Text>
                 </View>
               </View>
@@ -718,9 +776,13 @@ export function WayfinderSheet({
             {/* ── Create state ── */}
             {showCreateOptions && (
               <View style={styles.createBody}>
-                <Text style={styles.createHeading}>Where do you want to go?</Text>
+                <Text style={styles.createHeading}>
+                  {wishlistMode ? 'Where do you dream of going?' : 'Where do you want to go?'}
+                </Text>
                 <Text style={styles.createSub}>
-                  Tell me, upload something, or paste a link — I'll handle the rest.
+                  {wishlistMode
+                    ? "Share a destination, vibe, or inspiration — I'll add it to your wishlist and help you plan when the time is right."
+                    : "Tell me, upload something, or paste a link — I'll handle the rest."}
                 </Text>
 
                 {imagePreview && (

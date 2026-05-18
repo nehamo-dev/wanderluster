@@ -22,11 +22,13 @@ function AppLayoutInner() {
   const [composeMode, setComposeMode] = useState<ComposeMode | null>(null);
   const [seedQ, setSeedQ] = useState('');
   const [editMode, setEditMode] = useState(false);
+  const [wishlistMode, setWishlistMode] = useState(false);
 
   function openWayfinder(q?: string) {
     if (q) setSeedQ(q);
     setComposeMode(null);
     setEditMode(false);
+    setWishlistMode(false);
     setSheetOpen(true);
   }
 
@@ -35,6 +37,16 @@ function AppLayoutInner() {
     setSeedQ('');
     setFolioId(undefined);
     setEditMode(false);
+    setWishlistMode(false);
+    setSheetOpen(true);
+  }
+
+  function openWishlist() {
+    setComposeMode(null);
+    setSeedQ('');
+    setFolioId(undefined);
+    setEditMode(false);
+    setWishlistMode(true);
     setSheetOpen(true);
   }
 
@@ -43,6 +55,7 @@ function AppLayoutInner() {
     setComposeMode(null);
     setSeedQ('');
     setEditMode(true);
+    setWishlistMode(false);
     setSheetOpen(true);
   }
 
@@ -51,6 +64,7 @@ function AppLayoutInner() {
     setComposeMode(null);
     setSeedQ('');
     setEditMode(false);
+    setWishlistMode(false);
   }
 
   function handleUpdate(newFolio: Folio) {
@@ -61,7 +75,7 @@ function AppLayoutInner() {
   }
 
   return (
-    <WayfinderContext.Provider value={{ openCompose, openWayfinder, editFolio }}>
+    <WayfinderContext.Provider value={{ openCompose, openWayfinder, openWishlist, editFolio }}>
       <View style={styles.root}>
         <Stack
           screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
@@ -94,6 +108,7 @@ function AppLayoutInner() {
           folioId={folioId}
           composeMode={composeMode}
           editMode={editMode}
+          wishlistMode={wishlistMode}
           onUpdate={handleUpdate}
         />
       </View>

@@ -61,7 +61,7 @@ export interface WishlistItem {
   name: string;
   season: string;
   vibe: string;
-  flight: string;
+  flight?: string;
   visa: string;
   budget: string;
   palette: { a: string; b: string; c: string };
