@@ -69,7 +69,13 @@
       "Bash(curl -s -X POST http://localhost:8082/api/wayfinder -H 'Content-Type: application/json' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"folio\":null}')",
       "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"5 days in Tokyo in October\"}')",
       "Bash(curl -s -X POST http://localhost:8082/api/compose -H 'Content-Type: application/json' -d '{\"mode\":\"words\",\"input\":\"3 days Paris to Amsterdam\"}')",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(sed -n '130,145p' /Users/nemo/ClaudeCode/Wanderluster/components/wayfinder/WayfinderSheet.tsx)",
+      "Bash(sed -n '688,715p' /Users/nemo/ClaudeCode/Wanderluster/components/wayfinder/WayfinderSheet.tsx)",
+      "Bash(curl -sI \"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Lisboa_April_2009-11.jpg/960px-Lisboa_April_2009-11.jpg\")",
+      "Bash(curl -s \"https://en.wikipedia.org/w/api.php?action=query&titles=Lisbon&prop=pageimages&format=json&pithumbsize=960&origin=*&redirects=1\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); pages=d['query']['pages']; p=list\\(pages.values\\(\\)\\)[0]; print\\(p.get\\('thumbnail',{}\\).get\\('source',''\\)\\)\")",
+      "Bash(curl -sI \"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Lisboa_-_Portugal_%2852597836992%29.jpg/960px-Lisboa_-_Portugal_%2852597836992%29.jpg\")"
     ]
   }
 }

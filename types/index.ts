@@ -65,6 +65,9 @@ export interface WishlistItem {
   visa: string;
   budget: string;
   palette: { a: string; b: string; c: string };
+  photo?: string;
+  priceAlert?: boolean;
+  bestTime?: { months: string; why: string; temp: string };
 }
 
 export interface ChatMessage {

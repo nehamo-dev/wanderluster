@@ -13,7 +13,30 @@ import { DestinationArt } from '../../../components/art/DestinationArt';
 import { DayCard } from '../../../components/trip/DayCard';
 import { useFolios } from '../../../lib/folios-context';
 import { useWayfinder } from '../../../lib/wayfinder-context';
+import { useWishlist } from '../../../lib/wishlist-context';
 import type { TripDay, TripEvent } from '../../../types';
+
+// ── Static best-time data for known inspiration destinations ─────────────────
+const BEST_TIME: Record<string, { months: string; why: string; temp: string; crowd: string }> = {
+  tokyo: {
+    months: 'Mar – Apr  ·  Oct – Nov',
+    why: 'Cherry blossoms peak late March; maple foliage peaks mid-November. Both windows offer mild temperatures and the most photogenic city in the world.',
+    temp: '10 – 20°C',
+    crowd: 'Busy weekends, quiet mid-week',
+  },
+  salzburg: {
+    months: 'Dec  ·  Jun – Aug',
+    why: 'Advent markets fill the Altstadt from late November. Summer brings the Salzburg Festival — Mozart Week in January is quieter and magical.',
+    temp: '−2 – 25°C',
+    crowd: 'Peak in December & July',
+  },
+  yosemite: {
+    months: 'May – Jun  ·  Sep',
+    why: 'Snowmelt waterfalls are at full roar May–June. September brings golden light, fewer crowds, and open trails before winter closures.',
+    temp: '8 – 28°C',
+    crowd: 'Quietest in early May & September',
+  },
+};
 
 function SmallCaps({ children, color, size = 10 }: { children: string; color: string; size?: number }) {
   return (
@@ -26,9 +49,13 @@ export default function TripScreen() {
   const folio = FOLIOS[id ?? 'tokyo'];
   const { deleteFolio, planned } = useFolios();
   const { editFolio, openWayfinder } = useWayfinder();
+  const { items: wishlistItems, addItem: addToWishlist } = useWishlist();
 
   // Is this an inspiration / past-trip folio (not user-created)?
   const isInspirationFolio = !planned.some(f => f.id === (id ?? ''));
+  const isOnWishlist = wishlistItems.some(w => w.name.toLowerCase() === (folio?.destination ?? '').toLowerCase());
+  const bestTime = folio ? BEST_TIME[folio.id] : undefined;
+  const [priceAlertOn, setPriceAlertOn] = useState(false);
 
   const [activeDay, setActiveDay] = useState(1);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1, 2]));
@@ -235,20 +262,132 @@ export default function TripScreen() {
           </View>
         </View>
 
-        {/* Wayfinder note */}
-        <View style={styles.px}>
-          <View style={[styles.wayfinderNote, { backgroundColor: T.surface, borderColor: T.hair }]}>
-            <View style={[styles.wfNoteAvatar, { backgroundColor: T.accent }]}>
-              <Text style={[styles.wfNoteAvatarText, { color: '#f5efe2' }]}>W</Text>
-            </View>
-            <View style={styles.wfNoteBody}>
-              <SmallCaps color={T.muted} size={9}>Wayfinder · just now</SmallCaps>
-              <Text style={[styles.wfNoteText, { color: T.ink }]}>
-                {WAYFINDER_GREETINGS[folio.id] ?? folio.teaser}
-              </Text>
+        {/* Wayfinder note — only for user folios */}
+        {!isInspirationFolio && (
+          <View style={styles.px}>
+            <View style={[styles.wayfinderNote, { backgroundColor: T.surface, borderColor: T.hair }]}>
+              <View style={[styles.wfNoteAvatar, { backgroundColor: T.accent }]}>
+                <Text style={[styles.wfNoteAvatarText, { color: '#f5efe2' }]}>W</Text>
+              </View>
+              <View style={styles.wfNoteBody}>
+                <SmallCaps color={T.muted} size={9}>Wayfinder · just now</SmallCaps>
+                <Text style={[styles.wfNoteText, { color: T.ink }]}>
+                  {WAYFINDER_GREETINGS[folio.id] ?? folio.teaser}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
+
+        {/* ── INSPIRATION-ONLY SECTIONS ── */}
+        {isInspirationFolio && (
+          <View style={styles.px}>
+
+            {/* Best time to visit */}
+            {bestTime && (
+              <View style={[styles.inspCard, { backgroundColor: T.surface, borderColor: T.hair }]}>
+                <View style={styles.inspCardHeader}>
+                  <Text style={styles.inspCardIcon}>☀</Text>
+                  <SmallCaps color={T.muted} size={9}>Best time to visit</SmallCaps>
+                </View>
+                <Text style={[styles.inspMonths, { color: T.ink }]}>{bestTime.months}</Text>
+                <Text style={[styles.inspWhy, { color: T.sub }]}>{bestTime.why}</Text>
+                <View style={styles.inspPills}>
+                  <View style={[styles.inspPill, { backgroundColor: T.bg, borderColor: T.hair }]}>
+                    <Text style={[styles.inspPillText, { color: T.muted }]}>🌡 {bestTime.temp}</Text>
+                  </View>
+                  <View style={[styles.inspPill, { backgroundColor: T.bg, borderColor: T.hair }]}>
+                    <Text style={[styles.inspPillText, { color: T.muted }]}>👥 {bestTime.crowd}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Track prices */}
+            <TouchableOpacity
+              onPress={() => setPriceAlertOn(v => !v)}
+              activeOpacity={0.85}
+              style={[
+                styles.inspCard,
+                { borderColor: priceAlertOn ? T.accent : T.hair },
+                priceAlertOn ? { backgroundColor: T.accent + '12' } : { backgroundColor: T.surface },
+              ]}
+            >
+              <View style={styles.priceTrackRow}>
+                <View style={styles.priceTrackLeft}>
+                  <Text style={styles.inspCardIcon}>{priceAlertOn ? '🔔' : '🔕'}</Text>
+                  <View>
+                    <Text style={[styles.priceTrackTitle, { color: T.ink }]}>
+                      {priceAlertOn ? 'Price alert active' : 'Track flight prices'}
+                    </Text>
+                    <Text style={[styles.priceTrackSub, { color: T.muted }]}>
+                      {priceAlertOn
+                        ? `We'll notify you when fares drop to ${folio.destination}`
+                        : 'Get notified when fares drop for this destination'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[
+                  styles.priceTrackToggle,
+                  { backgroundColor: priceAlertOn ? T.accent : T.hair },
+                ]}>
+                  <View style={[styles.priceTrackThumb, priceAlertOn && styles.priceTrackThumbOn]} />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Add to wishlist */}
+            {!isOnWishlist && (
+              <TouchableOpacity
+                onPress={() => addToWishlist({
+                  id: `wish-${folio.id}`,
+                  name: folio.destination,
+                  season: folio.season,
+                  vibe: folio.vibe,
+                  flight: '',
+                  visa: folio.visa?.label ?? '',
+                  budget: '$$',
+                  palette: { a: folio.palette.a, b: folio.palette.b ?? folio.palette.a, c: folio.palette.c },
+                  photo: heroPhoto ?? undefined,
+                  bestTime: bestTime,
+                })}
+                activeOpacity={0.85}
+                style={[styles.inspCard, styles.wishlistCTA, { backgroundColor: T.surface, borderColor: T.hair }]}
+              >
+                <Text style={styles.inspCardIcon}>♡</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.priceTrackTitle, { color: T.ink }]}>Save to wishlist</Text>
+                  <Text style={[styles.priceTrackSub, { color: T.muted }]}>Keep it on your radar</Text>
+                </View>
+                <Text style={[styles.wishlistArrow, { color: T.muted }]}>→</Text>
+              </TouchableOpacity>
+            )}
+            {isOnWishlist && (
+              <View style={[styles.inspCard, styles.wishlistCTA, { backgroundColor: T.surface, borderColor: T.hair }]}>
+                <Text style={styles.inspCardIcon}>♥</Text>
+                <Text style={[styles.priceTrackTitle, { color: T.muted }]}>On your wishlist</Text>
+              </View>
+            )}
+
+            {/* Coming soon teaser */}
+            <View style={[styles.comingSoonCard, { borderColor: T.hair }]}>
+              <SmallCaps color={T.muted} size={9}>Coming soon</SmallCaps>
+              <Text style={[styles.comingSoonTitle, { color: T.ink }]}>More ways to plan smarter</Text>
+              {[
+                { icon: '⚡', label: 'Auto-book when price drops to your target' },
+                { icon: '📅', label: 'Sync best dates with your calendar automatically' },
+                { icon: '👥', label: 'Coordinate group trips and split costs' },
+                { icon: '🛂', label: 'Visa applications handled end-to-end' },
+              ].map((f, i) => (
+                <View key={i} style={styles.comingSoonRow}>
+                  <Text style={styles.comingSoonIcon}>{f.icon}</Text>
+                  <Text style={[styles.comingSoonText, { color: T.sub }]}>{f.label}</Text>
+                </View>
+              ))}
+            </View>
+
+          </View>
+        )}
 
         {/* TLDR + Highlights */}
         {(folio.tldr || (folio.highlights && folio.highlights.length > 0)) && (
@@ -569,4 +708,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#c04040', alignItems: 'center',
   },
   confirmDeleteText: { fontSize: 14, letterSpacing: -0.1, color: '#fff', fontWeight: '500' },
+
+  // ── Inspiration sections ─────────────────────────────────────────────────
+  inspCard: {
+    borderWidth: 0.5, borderRadius: 14,
+    padding: 16, marginBottom: 12,
+  },
+  inspCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  inspCardIcon: { fontSize: 16 },
+  inspMonths: { fontSize: 16, fontWeight: '500', letterSpacing: -0.4, marginBottom: 8 },
+  inspWhy: { fontSize: 13.5, lineHeight: 20, letterSpacing: -0.1, marginBottom: 12 },
+  inspPills: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  inspPill: {
+    borderWidth: 0.5, borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  inspPillText: { fontSize: 11, letterSpacing: -0.05 },
+
+  priceTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  priceTrackLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  priceTrackTitle: { fontSize: 14, fontWeight: '500', letterSpacing: -0.2, marginBottom: 2 },
+  priceTrackSub: { fontSize: 12, letterSpacing: -0.1, lineHeight: 16 },
+  priceTrackToggle: {
+    width: 44, height: 26, borderRadius: 13, padding: 3,
+    justifyContent: 'center', flexShrink: 0,
+  },
+  priceTrackThumb: {
+    width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+  },
+  priceTrackThumbOn: { alignSelf: 'flex-end' },
+
+  wishlistCTA: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  wishlistArrow: { fontSize: 16, flexShrink: 0 },
+
+  comingSoonCard: {
+    borderWidth: 0.5, borderRadius: 14, borderStyle: 'dashed',
+    padding: 16, marginBottom: 12, gap: 12,
+  },
+  comingSoonTitle: { fontSize: 15, fontWeight: '500', letterSpacing: -0.3 },
+  comingSoonRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  comingSoonIcon: { fontSize: 15, width: 22, textAlign: 'center' },
+  comingSoonText: { fontSize: 13, letterSpacing: -0.1, flex: 1 },
 });

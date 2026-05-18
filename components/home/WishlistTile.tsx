@@ -58,7 +58,7 @@ export function WishlistTile({ item, theme: T, onPress, onDelete }: Props) {
         <View style={styles.meta}>
           <Text style={[styles.name, { color: T.ink }]}>{item.name}</Text>
           <Text style={[styles.sub, { color: T.muted }]}>
-            {item.season} · {item.flight}
+            {item.season}
           </Text>
         </View>
       </TouchableOpacity>

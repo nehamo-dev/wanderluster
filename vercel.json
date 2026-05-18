@@ -13,6 +13,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/wishlist",                  "destination": "/api/wishlist" },
     { "source": "/api/compose",                   "destination": "/api/compose" },
     { "source": "/api/wayfinder",                 "destination": "/api/wayfinder" },
     { "source": "/api/suggest",                   "destination": "/api/suggest" },
