@@ -36,7 +36,8 @@ export function WishlistTile({ item, theme: T, onPress, onDelete }: Props) {
             <View style={[styles.photo, { backgroundColor: item.palette.c }]} />
           )}
           <LinearGradient
-            colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.42)']}
+            colors={['rgba(0,0,0,0.32)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.68)']}
+            locations={[0, 0.35, 1]}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.badge}>
@@ -111,17 +112,17 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: 170 },
   badge: {
     position: 'absolute', bottom: 10, left: 12,
-    backgroundColor: 'rgba(0,0,0,0.38)',
+    backgroundColor: 'rgba(0,0,0,0.52)',
     borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
   },
   badgeText: {
-    color: '#f5efe2', fontSize: 9,
+    color: '#fff', fontSize: 9,
     letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'monospace',
   },
   menuBtn: {
     position: 'absolute', top: 10, right: 10,
     width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 12,
   },
   menuDots: { color: '#fff', fontSize: 12, letterSpacing: 1 },
   meta: { padding: 14, gap: 6 },

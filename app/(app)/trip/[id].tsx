@@ -173,7 +173,8 @@ export default function TripScreen() {
                 resizeMode="cover"
               />
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.55)']}
+                colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.75)']}
+                locations={[0, 0.4, 1]}
                 style={StyleSheet.absoluteFill}
               />
             </View>
@@ -208,9 +209,9 @@ export default function TripScreen() {
 
           {/* Hero text */}
           <View style={styles.heroText}>
-            <SmallCaps color="rgba(245,239,226,0.78)" size={10}>
-              {`${folio.destination} · ${folio.country}`}
-            </SmallCaps>
+            <Text style={styles.heroDestLabel}>
+              {`${folio.destination} · ${folio.country}`.toUpperCase()}
+            </Text>
             <Text style={styles.heroTitle}>{folio.title}</Text>
             <View style={styles.heroPills}>
               <Text style={styles.heroPillText}>{folio.dates}</Text>
@@ -432,40 +433,49 @@ const styles = StyleSheet.create({
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(245,239,226,0.18)',
-    borderWidth: 0.5, borderColor: 'rgba(245,239,226,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  backChevron: { color: '#f5efe2', fontSize: 24, marginTop: -2 },
+  backChevron: { color: '#fff', fontSize: 24, marginTop: -2 },
   folioBadge: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
-    backgroundColor: 'rgba(245,239,226,0.18)',
-    borderWidth: 0.5, borderColor: 'rgba(245,239,226,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.22)',
   },
   folioBadgeText: {
-    color: '#f5efe2', fontSize: 10,
+    color: '#fff', fontSize: 10,
     letterSpacing: 3, textTransform: 'uppercase', fontFamily: 'monospace',
   },
   menuBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(245,239,226,0.18)',
-    borderWidth: 0.5, borderColor: 'rgba(245,239,226,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  menuDots: { color: '#f5efe2', fontSize: 18, letterSpacing: 1 },
+  menuDots: { color: '#fff', fontSize: 18, letterSpacing: 1 },
   heroText: {
     position: 'absolute', left: 24, right: 24, bottom: 26,
   },
+  heroDestLabel: {
+    color: '#fff', fontSize: 10, fontFamily: 'monospace',
+    letterSpacing: 3.5, textTransform: 'uppercase',
+    textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
   heroTitle: {
-    color: '#f5efe2', fontSize: 40, lineHeight: 40,
+    color: '#fff', fontSize: 40, lineHeight: 40,
     letterSpacing: -1.6, fontWeight: '400', marginTop: 12,
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8,
   },
   heroPills: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginTop: 14, opacity: 0.85,
+    marginTop: 14,
   },
-  heroPillText: { color: '#f5efe2', fontSize: 12, letterSpacing: 0.6 },
-  heroDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#f5efe2', opacity: 0.6 },
+  heroPillText: {
+    color: '#fff', fontSize: 12, letterSpacing: 0.6,
+    textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
+  heroDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.7)' },
   planBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, marginTop: 18,

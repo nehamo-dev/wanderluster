@@ -70,8 +70,8 @@ export function FolioTile({ folio, theme: T, onOpen, onDelete }: Props) {
               />
               {imageLoaded && (
                 <LinearGradient
-                  colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.52)']}
-                  locations={[0, 0.4, 1]}
+                  colors={['rgba(0,0,0,0.42)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.72)']}
+                  locations={[0, 0.38, 1]}
                   style={StyleSheet.absoluteFill}
                 />
               )}
@@ -162,26 +162,30 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folioLabel: {
-    color: '#f5efe2', fontSize: 9,
-    letterSpacing: 3.5, textTransform: 'uppercase', fontFamily: 'monospace', opacity: 0.9,
+    color: '#fff', fontSize: 9,
+    letterSpacing: 3.5, textTransform: 'uppercase', fontFamily: 'monospace',
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   durationLabel: {
-    color: '#f5efe2', fontSize: 9,
-    letterSpacing: 3, textTransform: 'uppercase', fontFamily: 'monospace', opacity: 0.9,
+    color: '#fff', fontSize: 9,
+    letterSpacing: 3, textTransform: 'uppercase', fontFamily: 'monospace',
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   menuBtn: {
     width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 12,
   },
   menuDots: { color: '#fff', fontSize: 12, letterSpacing: 1 },
   bottomOverlay: { padding: 14 },
   destinationLabel: {
-    color: '#f5efe2', fontSize: 9,
-    letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.82, marginBottom: 4,
+    color: '#fff', fontSize: 9,
+    letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   title: {
     color: '#fff', fontSize: 20,
     letterSpacing: -0.6, lineHeight: 21, fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6,
   },
   meta: {
     flexDirection: 'row', justifyContent: 'space-between',
