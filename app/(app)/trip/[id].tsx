@@ -58,7 +58,6 @@ export default function TripScreen() {
   const [priceAlertOn, setPriceAlertOn] = useState(false);
 
   const [activeDay, setActiveDay] = useState(1);
-  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([1, 2]));
   const [days, setDays] = useState<TripDay[]>(() => folio?.days ?? []);
   const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
   const [menuVisible, setMenuVisible] = useState(false);
@@ -421,10 +420,7 @@ export default function TripScreen() {
             {folio.days.map(d => (
               <TouchableOpacity
                 key={d.n}
-                onPress={() => {
-                  setActiveDay(d.n);
-                  setExpandedDays(prev => new Set(prev).add(d.n));
-                }}
+                onPress={() => setActiveDay(d.n)}
                 style={[
                   styles.dayPill,
                   {
@@ -450,7 +446,7 @@ export default function TripScreen() {
               folio={folio}
               theme={T}
               idx={idx}
-              defaultExpanded={expandedDays.has(day.n)}
+              defaultExpanded={true}
               onAskWayfinder={() => {}}
               onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
               onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
