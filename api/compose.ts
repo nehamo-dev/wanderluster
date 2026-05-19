@@ -122,7 +122,7 @@ export default async function handler(request: Request): Promise<Response> {
     // Image mode: vision model doesn't support streaming — return JSON directly
     if (imageData) {
       const result = await groq.chat.completions.create({
-        model: 'llama-3.2-11b-vision-preview',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         max_tokens: 8000,
         messages: [{
           role: 'user',
