@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Linking, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Linking, Platform, StyleSheet } from 'react-native';
 import type { Palette } from '../../constants/theme';
 import type { TripEvent } from '../../types';
 
@@ -35,7 +35,14 @@ export function EventRow({
 
   function openMap() {
     if (!event.location) return;
-    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(event.location)}`);
+    const url = `https://maps.google.com/?q=${encodeURIComponent(event.location)}`;
+    if (Platform.OS === 'web') {
+      // Call window.open synchronously inside the gesture handler to avoid
+      // popup blockers that block async Linking.openURL on web.
+      (globalThis as any).open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      Linking.openURL(url);
+    }
   }
 
   if (loadingAlternative) {

@@ -18,7 +18,7 @@ Regression: images go gray when Unsplash IDs expire, Wikimedia width mismatches,
 
 - [ ] Verify each hardcoded URL returns HTTP 200:
   ```
-  curl -sI "<url>" | grep "^HTTP"
+  curl -sI -A "Mozilla/5.0" "<url>" | grep "^HTTP"
   ```
 - [ ] **Tokyo** folio tile shows Shinjuku skyline (not gray)
 - [ ] **Salzburg** folio tile shows old town aerial (not gray)
@@ -45,11 +45,12 @@ Regression: demo button disappeared when `__DEV__` gating was used.
 ## 4. Home screen
 
 - [ ] "YOUR PLANS" section shows AddTile ("A Blank Folio · Throw it at me")
-- [ ] "ON YOUR WISHLIST" section shows 4 tiles (Patagonia, Kyoto, Rome, Marrakech)
+- [ ] "ON YOUR WISHLIST" section shows wishlist tiles (Patagonia, Kyoto, Rome, Marrakech at minimum)
+- [ ] "ADD DESTINATION / Somewhere new" tile appears at end of wishlist row
 - [ ] "INSPIRATION" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
 - [ ] "PAST TRIPS" section shows 3 tiles (Rome, Kyoto, Lisbon) with past dates
 - [ ] Tapping a folio tile navigates to the trip detail screen
-- [ ] Wayfinder dock (bottom) is visible
+- [ ] Wayfinder dock (bottom) cycles through **generic** travel prompts (not folio-specific)
 
 ---
 
@@ -68,7 +69,7 @@ Fix: client now auto-composes after 2nd user message in no-folio chat mode (mode
 - [ ] Footer shows lock icon + "Your uploads are only used to plan your trip."
 - [ ] Tapping × or the scrim closes the modal
 - [ ] Typing in the textarea and tapping → sends the message and transitions to chat view
-- [ ] Tapping "Upload file" opens file picker and shows selected file chip
+- [ ] Tapping "Upload file" opens file picker (uses `meta-llama/llama-4-scout-17b-16e-instruct` vision model)
 - [ ] Tapping "Paste link" pre-fills input with "https://" and focuses textarea
 - [ ] After 2nd user message in chat → "Building your folio now…" appears automatically
 - [ ] Folio is created and app navigates to the trip detail screen automatically
@@ -110,15 +111,52 @@ Regression: AI returns malformed JSON (unescaped newlines/quotes, trailing comma
 
 ---
 
-## 8. Trip detail screen
+## 8. Trip detail — user-created folios
 
 - [ ] Hero image shows for known destinations (Tokyo, Salzburg, Yosemite)
 - [ ] Day cards render with correct date and day-of-week
-- [ ] Suggested events show "Suggested" badge
-- [ ] Confirmed events (user-provided) do NOT show "Suggested" badge
-- [ ] Expanding an event shows tips / map link
-- [ ] Map link contains full address including city (not just venue name)
-- [ ] Wayfinder opens from within the trip screen and has folio context
+- [ ] All day cards are **always expanded** — there is no collapse toggle
+- [ ] Day tabs (DAY 1 · DAY 2 …) scroll the page to the corresponding card when tapped
+- [ ] Each day card has a dashed "+ Add to this day" row at the bottom
+- [ ] Tapping "+ Add to this day" opens Wayfinder pre-filled with day context
+- [ ] Suggested events show "Suggested" badge + "+" confirm and "×" remove action buttons
+- [ ] Confirmed events do NOT show "+" action button
+- [ ] Confirmed events show a "×" that reveals a reason chooser (Incorrect data / Change of plan)
+- [ ] Tapping an event row with tips/rating/location expands to show details (∨ chevron visible)
+- [ ] Map address link opens Google Maps in a **new browser tab** (not same tab, not blocked by popup blocker)
+- [ ] Map link text includes full address with city (not just bare venue name)
+- [ ] Wayfinder opens from within the trip screen and receives folio context
+
+---
+
+## 8b. Trip detail — inspiration folios (read-only)
+
+Regression: inspiration folios showed action buttons that mutated local state.
+
+- [ ] "INSPIRATION" badge shown in top-right (not "Folio · Draft")
+- [ ] No ⋯ menu button visible
+- [ ] "Plan this trip →" button visible on hero
+- [ ] Day cards visible and always expanded (same visual as user folios)
+- [ ] NO "+ Add to this day" button on any day card
+- [ ] NO "+" / "×" action buttons on any events (suggested or confirmed)
+- [ ] NO "Ask Wayfinder for ideas" button on empty days ("A blank day. Often the best ones." text still shows)
+- [ ] Badge counts: "2 CONFIRMED" on Day 1 Tokyo (confirmed && !suggested), not overcounting
+- [ ] Tapping "Plan this trip" opens Wayfinder with destination + trip details pre-filled
+
+---
+
+## 8c. Wishlist add flow
+
+Regression: WishlistItem.flight required; wishlistMode missing from useEffect deps causing stale messages.
+
+- [ ] Tapping "ADD DESTINATION / Somewhere new" tile opens Wayfinder in wishlist mode
+- [ ] Wayfinder header shows "Add to wishlist" subtitle (not "Your AI travel concierge")
+- [ ] Body shows "Where do you dream of going?" heading
+- [ ] Typing a destination and tapping → calls `/api/wishlist` (non-streaming JSON)
+- [ ] Wayfinder shows "[destination] added to your wishlist ✦" confirmation message
+- [ ] Sheet auto-closes after ~1.4 seconds
+- [ ] New wishlist tile appears at front of wishlist row with correct name, season, and vibe tags
+- [ ] Re-opening wishlist Wayfinder shows a clean blank state (no stale messages from previous session)
 
 ---
 
@@ -135,72 +173,62 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 
 ---
 
-## 11. Wayfinder — in-trip contextual mode
+## 10. Wayfinder — in-trip contextual mode
 
-- [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the header subtitle (not "Your AI travel concierge")
+- [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the header subtitle
 - [ ] Header subtitle shows "Editing your folio" when editMode is true
-- [ ] Asking a question (e.g. "what's the weather like in Tokyo in spring?") gets a conversational reply — no trip update is triggered, no `[EDIT:]` in reply
-- [ ] Asking to add something (e.g. "add a sushi dinner on Day 2") gets a 1–2 sentence confirmation reply, then "Updating your [destination] trip…" appears
-- [ ] After the update message, the trip is rebuilt and the updated itinerary is visible without reopening the screen
-- [ ] Suggestions shown in folio mode are specific to the trip's destination city (not generic)
-- [ ] If any days have no food events, "Find a dinner option for Day X" appears as a suggestion for the first such day
-- [ ] Tapping "I'd like to change..." pre-fills the input with "I'd like to change " and focuses the input — it does NOT send immediately
+- [ ] Asking a question gets a conversational reply — no trip update triggered, no `[EDIT:]` in reply
+- [ ] Asking to add something triggers "Updating your [destination] trip…" then rebuilds the trip
 - [ ] `[EDIT: ...]` tag is never visible in the chat UI — stripped from the displayed reply
 - [ ] `[COMPOSE:]` tag is never visible in the chat UI — stripped from the displayed reply
-- [ ] Wayfinder suggestions are destination-specific and not recycled from the no-folio state
 
 ---
 
-## 12. Flight routing & smart transport
+## 11. Flight routing & smart transport
 
-- [ ] Creating a trip with a realistic long-haul route (e.g. Seattle → Tokyo) generates a flight event with `routeType: "direct"` and `routeNote` like "Direct · ~10h"
-- [ ] Creating a trip with no direct service (e.g. Seattle → Dubrovnik) generates a connecting flight with `routeType: "connecting"` and `routeNote` naming the hub (e.g. "Via Frankfurt · ~14h")
-- [ ] Short-haul trip within ~400km (e.g. Paris → Amsterdam) generates a `kind: "transport"` event (train/drive), NOT a flight
-- [ ] Suggested flight events show "Verify before booking" label in the trip detail view
-- [ ] Confirmed (user-provided) flight events do NOT show "Verify before booking"
-- [ ] `routeNote` is displayed on flight events: "→" for direct, "⤳" for connecting, "≈" for surface
-- [ ] Wayfinder asked "how do I get from Seattle to Dubrovnik?" responds with connecting route via a real hub, mentions no direct service
-- [ ] Wayfinder asked "can I fly direct from London to New York?" confirms direct service exists on major carriers
-- [ ] Wayfinder asked about a short drive/train route proactively suggests surface transport with duration
-- [ ] No invented IATA codes appear in any generated flight events
-- [ ] No flight event has a connection time shorter than 1h30 (domestic) or 2h (international)
+- [ ] Long-haul route (e.g. Seattle → Tokyo) generates `routeType: "direct"` with `routeNote` like "Direct · ~10h"
+- [ ] No-direct route (e.g. Seattle → Dubrovnik) generates `routeType: "connecting"` naming the hub
+- [ ] Short-haul within ~400km (e.g. Paris → Amsterdam) generates `kind: "transport"` (train/drive), NOT a flight
+- [ ] Suggested flight events show "Verify before booking" label in trip detail view
+- [ ] Confirmed flight events do NOT show "Verify before booking"
+- [ ] No invented IATA codes in generated flight events
+- [ ] No flight event connection time shorter than 1h30 domestic / 2h international
 
 ---
 
-## 13. Inspiration & Wishlist → Real Trip Conversion
+## 12. Inspiration & Wishlist → Real Trip Conversion
 
 - [ ] Tapping an Inspiration tile navigates to the trip detail screen
-- [ ] Trip detail for an inspiration folio shows "Inspiration" badge (not "Folio · Draft")
-- [ ] Trip detail for an inspiration folio does NOT show the ⋯ menu button
-- [ ] "Plan this trip" button is visible at the bottom of the hero on inspiration folios
-- [ ] Tapping "Plan this trip" opens Wayfinder with destination pre-filled in the input (e.g. "I'd like to plan a trip to Tokyo — 10 days, Late spring...")
-- [ ] Wayfinder opens in create mode (not edit mode) when triggered from an inspiration tile
-- [ ] Trip detail for a user-created folio still shows "Folio · Draft" badge and ⋯ menu
-- [ ] Tapping a Wishlist tile opens Wayfinder with destination pre-filled (e.g. "I'd like to plan a trip to Patagonia — Winter, adventure...")
-- [ ] The ⋯ delete button on a Wishlist tile still works (does not accidentally open Wayfinder)
-- [ ] After creating a trip from inspiration/wishlist, the new folio appears in "Your Plans" on the home screen
+- [ ] Trip detail for inspiration folio shows "Inspiration" badge (not "Folio · Draft")
+- [ ] "Plan this trip" button visible on hero of inspiration folio
+- [ ] Tapping "Plan this trip" opens Wayfinder with destination + duration pre-filled
+- [ ] After creating a trip, the new folio appears in "Your Plans" on home screen
 
 ---
 
-## 10. Reported bugs tracker
+## 13. Reported bugs tracker
 
-Add every bug reported by the user here so it gets a regression test.
-
-| # | Bug | Test |
-|---|-----|------|
-| 1 | Destination images go gray | § 2 photo checks |
-| 2 | Demo button disappeared from login | § 3 login checks |
-| 3 | "Connection lost" on Vercel and localhost | § 6 API connectivity |
-| 4 | JSON parse error from AI output | § 7 compose checks |
-| 5 | Wayfinder chats forever, never creates folio | § 5 new trip flow |
-| 6 | Wikimedia 400 errors from wrong px width | § 2 photo checks |
-| 7 | `supabaseUrl is required` during Vercel build | § 9 Vercel checks |
-| 8 | Day-of-week wrong (AI was guessing) | § 8 day card dates |
+| # | Bug | Section |
+|---|-----|---------|
+| 1 | Destination images go gray | § 2 |
+| 2 | Demo button disappeared from login | § 3 |
+| 3 | "Connection lost" on Vercel and localhost | § 6 |
+| 4 | JSON parse error from AI output | § 7 |
+| 5 | Wayfinder chats forever, never creates folio | § 5 |
+| 6 | Wikimedia 400 errors from wrong px width | § 2 |
+| 7 | `supabaseUrl is required` during Vercel build | § 9 |
+| 8 | Day-of-week wrong (AI was guessing) | § 8 dates |
 | 9 | AI hallucinating confirmed events | § 8 suggested badge |
 | 10 | Map link unresolvable (no city in address) | § 8 map address |
-| 11 | Destination images missing again (tiles gray) | § 2 photo checks |
-| 12 | Wayfinder never triggers folio creation (model ignores `[COMPOSE:]`) | § 5 new trip flow |
-| 13 | Vercel compose returns 500 / timeout (edge function waited on full Groq response) | § 6 API, EVAL § 6 Test M |
-| 14 | AI invents confirmed hotels/restaurants (`suggested: false`) user didn't provide | EVAL.md § 1 Tests A–D |
-| 15 | Vercel compose returns 500 / timeout (edge function waited on full Groq response) | § 6 API, EVAL § 6 Test M |
-| 16 | Wayfinder create screen showed generic suggestions instead of input options | § 5 create options checks |
+| 11 | Destination images missing again (tiles gray) | § 2 |
+| 12 | Wayfinder never triggers folio creation (`[COMPOSE:]` ignored) | § 5 |
+| 13 | Vercel compose 500 / timeout (edge fn waited on full Groq response) | § 6 |
+| 14 | AI invents confirmed events user didn't provide | EVAL hallucination suite |
+| 15 | Vision model 400 error (`llama-3.2-11b-vision-preview` decommissioned) | § 5 upload |
+| 16 | Day cards had expand/collapse toggle — should always be open | § 8 |
+| 17 | Day tabs did not scroll to correct card (`onLayout` race condition) | § 8 |
+| 18 | Inspiration folio showed action buttons (×, Ask Wayfinder, +) | § 8b |
+| 19 | Badge overcounted confirmed events (mock events lack `suggested` field) | § 8b |
+| 20 | WayfinderDock showed folio-specific suggestions on every screen | § 4 |
+| 21 | Wishlist stale messages bled between sessions (`wishlistMode` missing from dep array) | § 8c |
+| 22 | Map address link not opening (Linking.openURL async; blocked by popup blocker on web) | § 8 |

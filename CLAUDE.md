@@ -200,6 +200,8 @@ Run `QA.md` checklist. The most important regressions to check:
 3. Hero images not gray on folio tiles (Wikimedia URLs still valid)
 4. Wishlist add flow works (Wayfinder → wishlist mode → item appears on home)
 5. Trip detail shows correct hero photo, day cards, and event badges
+6. Inspiration folios are fully read-only (no action buttons anywhere)
+7. Day tab tapping scrolls to the correct card
 
 ---
 
@@ -211,3 +213,9 @@ Run `QA.md` checklist. The most important regressions to check:
 - **WayfinderSheet state reset**: the `useEffect` that clears messages depends on `[folioId, composeMode, editMode, wishlistMode]` — all four must be in the array or stale messages will bleed between sessions.
 - **`[COMPOSE:]` and `[EDIT:]` tags** from the AI must be stripped from the displayed chat text — they are control signals, not user-facing content.
 - **Day-of-week in folios**: always derived from the actual date string, never guessed by the AI. The AI generates `YYYY-MM-DD` dates and `parseCompose.ts` / `correctDates` formats them.
+- **Day tab scroll — use `measureLayout`, not `onLayout` accumulation**: in `trip/[id].tsx`, day card Y-positions are found via `cardRef.measureLayout(scrollRef.current, ...)` at tap time. Do not go back to storing positions in `onLayout` — child `onLayout` fires before the parent container's `onLayout` sets `dayCardsSectionY`, so stored values are always 0 + relative offset, losing the section offset.
+- **Inspiration folio read-only guards**: `isInspirationFolio` is `!planned.some(f => f.id === id)`. Pass `undefined` (not arrow fns) for `onConfirmEvent`, `onRemoveEvent`, `onRemoveConfirmedEvent`, `onAskWayfinder`, `onAddSomething` on inspiration folios. Arrow functions are always truthy — passing `() => prop?.(i)` to EventRow means the button always renders even when the underlying prop is undefined.
+- **Badge counting**: `confirmedCount = events.filter(e => e.confirmed && !e.suggested).length`. Mock data events have no `suggested` field, so `!undefined === true` — without the `e.confirmed` guard every event would be counted as confirmed.
+- **Map links on web**: `Linking.openURL` resolves asynchronously on web (fires `window.open` outside the user gesture context), which popup blockers kill. Use `Platform.OS === 'web' ? (globalThis as any).open(url, '_blank', 'noopener,noreferrer') : Linking.openURL(url)` in EventRow's `openMap()`.
+- **Vision model**: screenshot / image upload uses `meta-llama/llama-4-scout-17b-16e-instruct` (Groq). `llama-3.2-11b-vision-preview` is decommissioned — do not use it.
+- **WayfinderDock suggestions**: the `SUGGESTIONS` array in `WayfinderDock.tsx` must be generic travel prompts, not folio-specific ("What should I do on Day 4?" etc.). The dock appears on every screen, not just trip detail.
