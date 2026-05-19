@@ -4,11 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { Palette } from '../../constants/theme';
 
 const SUGGESTIONS = [
-  'What should I do on Day 4?',
-  'Do I need a visa with a US passport?',
-  'Add a dinner — Narisawa, Jun 15, 8pm',
-  'Find a quieter morning option',
-  'Pack list for 10 days in spring',
+  'Plan a long weekend in Lisbon',
+  'Best time to visit Japan?',
+  'I have flights booked — help me plan the rest',
+  'Hidden gems in southern Italy',
+  'Somewhere warm, under two hours away',
+  'What do I need for a visa to Vietnam?',
+  'Best neighbourhoods to stay in Paris',
+  'A week in the mountains, no plans yet',
 ];
 
 interface Props {

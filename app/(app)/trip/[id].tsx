@@ -62,6 +62,7 @@ export default function TripScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const dayCardsSectionY = useRef<number>(0);
   const dayYPositions = useRef<Record<number, number>>({});
+  const dayCardRefs = useRef<Record<number, View | null>>({});
   const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -76,6 +77,7 @@ export default function TripScreen() {
       if (url) setWikiPhoto(url);
     });
   }, [folio?.id]);
+
 
   if (!folio) {
     router.back();
@@ -425,9 +427,21 @@ export default function TripScreen() {
                 key={d.n}
                 onPress={() => {
                   setActiveDay(d.n);
-                  const y = dayYPositions.current[d.n];
-                  if (y !== undefined) {
-                    scrollRef.current?.scrollTo({ y: y - 16, animated: true });
+                  const cardRef = dayCardRefs.current[d.n];
+                  if (cardRef && scrollRef.current) {
+                    (cardRef as any).measureLayout(
+                      (scrollRef.current as any),
+                      (_x: number, y: number) => {
+                        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+                      },
+                      () => {
+                        // fallback: use stored onLayout position
+                        const relY = dayYPositions.current[d.n];
+                        if (relY !== undefined) {
+                          scrollRef.current?.scrollTo({ y: dayCardsSectionY.current + relY - 16, animated: true });
+                        }
+                      }
+                    );
                   }
                 }}
                 style={[
@@ -454,8 +468,9 @@ export default function TripScreen() {
           {days.map((day, idx) => (
             <View
               key={day.n}
+              ref={(el) => { dayCardRefs.current[day.n] = el; }}
               onLayout={(e) => {
-                dayYPositions.current[day.n] = dayCardsSectionY.current + e.nativeEvent.layout.y;
+                dayYPositions.current[day.n] = e.nativeEvent.layout.y;
               }}
             >
               <DayCard
@@ -464,13 +479,13 @@ export default function TripScreen() {
                 theme={T}
                 idx={idx}
                 defaultExpanded={true}
-                onAskWayfinder={() => {}}
+                onAskWayfinder={!isInspirationFolio ? () => {} : undefined}
                 onAddSomething={!isInspirationFolio ? () => openWayfinder(
                   `Add something to Day ${day.n} — ${day.label}. Tell me what you'd like to add, paste a link, or upload a screenshot.`
                 ) : undefined}
-                onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
-                onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
-                onRemoveConfirmedEvent={(eventIdx, reason) => removeConfirmedEvent(day.n, eventIdx, reason)}
+                onConfirmEvent={!isInspirationFolio ? (eventIdx) => confirmEvent(day.n, eventIdx) : undefined}
+                onRemoveEvent={!isInspirationFolio ? (eventIdx) => removeEvent(day.n, eventIdx) : undefined}
+                onRemoveConfirmedEvent={!isInspirationFolio ? (eventIdx, reason) => removeConfirmedEvent(day.n, eventIdx, reason) : undefined}
                 loadingEventIdx={
                   Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))
                     ? parseInt(Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))![0].split('-')[1])

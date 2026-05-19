@@ -29,7 +29,7 @@ export function DayCard({
   onRemoveConfirmedEvent,
   loadingEventIdx,
 }: Props) {
-  const confirmedCount = day.events.filter(e => !e.suggested).length;
+  const confirmedCount = day.events.filter(e => e.confirmed && !e.suggested).length;
   const suggestedCount = day.events.filter(e => e.suggested).length;
 
   return (
@@ -92,9 +92,9 @@ export function DayCard({
               event={event}
               theme={T}
               isLast={i === day.events.length - 1}
-              onConfirm={event.suggested ? () => onConfirmEvent?.(i) : undefined}
-              onRemove={event.suggested ? () => onRemoveEvent?.(i) : undefined}
-              onRemoveConfirmed={!event.suggested ? (reason) => onRemoveConfirmedEvent?.(i, reason) : undefined}
+              onConfirm={event.suggested && onConfirmEvent ? () => onConfirmEvent(i) : undefined}
+              onRemove={event.suggested && onRemoveEvent ? () => onRemoveEvent(i) : undefined}
+              onRemoveConfirmed={!event.suggested && onRemoveConfirmedEvent ? (reason) => onRemoveConfirmedEvent(i, reason) : undefined}
               loadingAlternative={loadingEventIdx === i}
             />
           ))
