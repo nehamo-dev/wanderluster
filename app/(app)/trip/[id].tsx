@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
   StyleSheet, Modal, Pressable,
@@ -59,6 +59,9 @@ export default function TripScreen() {
 
   const [activeDay, setActiveDay] = useState(1);
   const [days, setDays] = useState<TripDay[]>(() => folio?.days ?? []);
+  const scrollRef = useRef<ScrollView>(null);
+  const dayCardsSectionY = useRef<number>(0);
+  const dayYPositions = useRef<Record<number, number>>({});
   const [loadingAlt, setLoadingAlt] = useState<Record<string, boolean>>({});
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -188,7 +191,7 @@ export default function TripScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: T.bg }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Hero */}
         <View style={{ position: 'relative' }}>
           {heroPhoto ? (
@@ -420,7 +423,13 @@ export default function TripScreen() {
             {folio.days.map(d => (
               <TouchableOpacity
                 key={d.n}
-                onPress={() => setActiveDay(d.n)}
+                onPress={() => {
+                  setActiveDay(d.n);
+                  const y = dayYPositions.current[d.n];
+                  if (y !== undefined) {
+                    scrollRef.current?.scrollTo({ y: y - 16, animated: true });
+                  }
+                }}
                 style={[
                   styles.dayPill,
                   {
@@ -438,25 +447,37 @@ export default function TripScreen() {
         </View>
 
         {/* Day cards */}
-        <View style={[styles.px, styles.dayCards]}>
+        <View
+          style={[styles.px, styles.dayCards]}
+          onLayout={(e) => { dayCardsSectionY.current = e.nativeEvent.layout.y; }}
+        >
           {days.map((day, idx) => (
-            <DayCard
+            <View
               key={day.n}
-              day={day}
-              folio={folio}
-              theme={T}
-              idx={idx}
-              defaultExpanded={true}
-              onAskWayfinder={() => {}}
-              onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
-              onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
-              onRemoveConfirmedEvent={(eventIdx, reason) => removeConfirmedEvent(day.n, eventIdx, reason)}
-              loadingEventIdx={
-                Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))
-                  ? parseInt(Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))![0].split('-')[1])
-                  : null
-              }
-            />
+              onLayout={(e) => {
+                dayYPositions.current[day.n] = dayCardsSectionY.current + e.nativeEvent.layout.y;
+              }}
+            >
+              <DayCard
+                day={day}
+                folio={folio}
+                theme={T}
+                idx={idx}
+                defaultExpanded={true}
+                onAskWayfinder={() => {}}
+                onAddSomething={!isInspirationFolio ? () => openWayfinder(
+                  `Add something to Day ${day.n} — ${day.label}. Tell me what you'd like to add, paste a link, or upload a screenshot.`
+                ) : undefined}
+                onConfirmEvent={(eventIdx) => confirmEvent(day.n, eventIdx)}
+                onRemoveEvent={(eventIdx) => removeEvent(day.n, eventIdx)}
+                onRemoveConfirmedEvent={(eventIdx, reason) => removeConfirmedEvent(day.n, eventIdx, reason)}
+                loadingEventIdx={
+                  Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))
+                    ? parseInt(Object.entries(loadingAlt).find(([k, v]) => v && k.startsWith(`${day.n}-`))![0].split('-')[1])
+                    : null
+                }
+              />
+            </View>
           ))}
         </View>
 

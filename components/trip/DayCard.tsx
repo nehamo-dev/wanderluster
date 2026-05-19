@@ -12,6 +12,7 @@ interface Props {
   idx: number;
   defaultExpanded?: boolean;
   onAskWayfinder?: (q: string) => void;
+  onAddSomething?: () => void;
   onConfirmEvent?: (eventIdx: number) => void;
   onRemoveEvent?: (eventIdx: number) => void;
   onRemoveConfirmedEvent?: (eventIdx: number, reason: 'incorrect_data' | 'change_of_plan') => void;
@@ -22,6 +23,7 @@ export function DayCard({
   day, folio, theme: T, idx,
   defaultExpanded,
   onAskWayfinder,
+  onAddSomething,
   onConfirmEvent,
   onRemoveEvent,
   onRemoveConfirmedEvent,
@@ -62,42 +64,56 @@ export function DayCard({
       </View>
 
       <View style={styles.body}>
-          {day.area && (
-            <View style={[styles.areaRow, { borderBottomColor: T.hair }]}>
-              <Text style={[styles.areaLabel, { color: T.muted }]}>Area</Text>
-              <Text style={[styles.areaValue, { color: T.sub }]}>{day.area}</Text>
+        {day.area && (
+          <View style={[styles.areaRow, { borderBottomColor: T.hair }]}>
+            <Text style={[styles.areaLabel, { color: T.muted }]}>Area</Text>
+            <Text style={[styles.areaValue, { color: T.sub }]}>{day.area}</Text>
+          </View>
+        )}
+        {day.empty ? (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyText, { color: T.muted }]}>
+              A blank day. Often the best ones.
+            </Text>
+            {onAskWayfinder && (
+              <TouchableOpacity
+                onPress={() => onAskWayfinder(`What should I do on Day ${day.n} in ${folio.destination}?`)}
+                style={[styles.askButton, { borderColor: T.ink }]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.askButtonText, { color: T.ink }]}>Ask Wayfinder for ideas →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          day.events.map((event, i) => (
+            <EventRow
+              key={`${i}-${event.title}`}
+              event={event}
+              theme={T}
+              isLast={i === day.events.length - 1}
+              onConfirm={event.suggested ? () => onConfirmEvent?.(i) : undefined}
+              onRemove={event.suggested ? () => onRemoveEvent?.(i) : undefined}
+              onRemoveConfirmed={!event.suggested ? (reason) => onRemoveConfirmedEvent?.(i, reason) : undefined}
+              loadingAlternative={loadingEventIdx === i}
+            />
+          ))
+        )}
+
+        {/* Add something to this day */}
+        {onAddSomething && (
+          <TouchableOpacity
+            onPress={onAddSomething}
+            activeOpacity={0.6}
+            style={[styles.addRow, { borderTopColor: T.hair }]}
+          >
+            <View style={[styles.addCircle, { borderColor: T.hair }]}>
+              <Text style={[styles.addPlus, { color: T.muted }]}>+</Text>
             </View>
-          )}
-          {day.empty ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: T.muted }]}>
-                A blank day. Often the best ones.
-              </Text>
-              {onAskWayfinder && (
-                <TouchableOpacity
-                  onPress={() => onAskWayfinder(`What should I do on Day ${day.n} in ${folio.destination}?`)}
-                  style={[styles.askButton, { borderColor: T.ink }]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.askButtonText, { color: T.ink }]}>Ask Wayfinder for ideas →</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            day.events.map((event, i) => (
-              <EventRow
-                key={`${i}-${event.title}`}
-                event={event}
-                theme={T}
-                isLast={i === day.events.length - 1}
-                onConfirm={event.suggested ? () => onConfirmEvent?.(i) : undefined}
-                onRemove={event.suggested ? () => onRemoveEvent?.(i) : undefined}
-                onRemoveConfirmed={!event.suggested ? (reason) => onRemoveConfirmedEvent?.(i, reason) : undefined}
-                loadingAlternative={loadingEventIdx === i}
-              />
-            ))
-          )}
-        </View>
+            <Text style={[styles.addLabel, { color: T.muted }]}>Add to this day</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -155,4 +171,16 @@ const styles = StyleSheet.create({
     borderRadius: 999, borderWidth: 0.5,
   },
   askButtonText: { fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase' },
+  addRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingVertical: 14,
+    borderTopWidth: 0.5,
+  },
+  addCircle: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 0.5, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addPlus: { fontSize: 14, lineHeight: 18 },
+  addLabel: { fontSize: 12, letterSpacing: 0.2 },
 });
