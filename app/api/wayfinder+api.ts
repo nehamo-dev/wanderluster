@@ -1,6 +1,13 @@
 import Groq from 'groq-sdk';
+import { requireAuth, checkRateLimit, rateLimitedResponse } from '../../lib/api-auth';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// 30 chat messages per user per 5 minutes
+const RATE_LIMIT = { max: 30, windowMs: 5 * 60 * 1000 };
+
+// Max messages to forward to the model (prevents prompt-stuffing)
+const MAX_MESSAGES = 20;
 
 const SYSTEM = `You are Wayfinder, a personal travel concierge inside the Wanderluster app.
 
@@ -55,6 +62,15 @@ function buildSystemWithContext(folio: Record<string, unknown> | null): string {
 
 export async function POST(request: Request) {
   try {
+    // Auth required
+    const auth = await requireAuth(request);
+    if (auth.error) return auth.error;
+
+    // Rate limit per user
+    if (!checkRateLimit(`wayfinder:${auth.userId}`, RATE_LIMIT.max, RATE_LIMIT.windowMs)) {
+      return rateLimitedResponse();
+    }
+
     const { messages, folio } = await request.json() as {
       messages: Array<{ role: 'user' | 'assistant'; content: string }>;
       folio: Record<string, unknown> | null;
@@ -64,6 +80,9 @@ export async function POST(request: Request) {
       return Response.json({ error: 'messages required' }, { status: 400 });
     }
 
+    // Truncate to last MAX_MESSAGES to prevent prompt-stuffing
+    const trimmedMessages = messages.slice(-MAX_MESSAGES);
+
     const system = buildSystemWithContext(folio);
 
     const stream = await groq.chat.completions.create({
@@ -72,7 +91,7 @@ export async function POST(request: Request) {
       stream: true,
       messages: [
         { role: 'system', content: system },
-        ...messages,
+        ...trimmedMessages,
       ],
     });
 

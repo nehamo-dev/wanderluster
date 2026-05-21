@@ -14,6 +14,21 @@ import { useSettings } from '../../lib/settings-context';
 import { useWishlist } from '../../lib/wishlist-context';
 import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
 import { fetchWikiPhoto } from '../../constants/photos';
+import { supabase } from '../../lib/supabase';
+
+/** Returns Authorization header if a session is active; graceful no-op if not. */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      };
+    }
+  } catch {}
+  return { 'Content-Type': 'application/json' };
+}
 
 type ComposeMode = 'screenshots' | 'words' | 'link' | null;
 
@@ -284,7 +299,7 @@ export function WayfinderSheet({
       try {
         const res = await fetch('/api/wishlist', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({ destination: text }),
         });
 
@@ -339,7 +354,7 @@ export function WayfinderSheet({
     try {
       const res = await fetch('/api/compose', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           mode: effectiveMode ?? 'words',
           input: text,
@@ -444,7 +459,7 @@ export function WayfinderSheet({
 
       const response = await fetch('/api/wayfinder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ messages: history, folio, userContext }),
       });
 
@@ -560,7 +575,7 @@ export function WayfinderSheet({
     try {
       const res = await fetch('/api/compose', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ mode: 'words', input: brief }),
       });
       if (!res.ok) {
@@ -632,7 +647,7 @@ export function WayfinderSheet({
     try {
       const res = await fetch('/api/compose', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ mode: 'words', input: brief }),
       });
       if (!res.ok) {

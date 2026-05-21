@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
@@ -9,20 +9,53 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FilmGrain } from '../components/art/FilmGrain';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_PALETTE as T } from '../constants/theme';
+import { TurnstileWidget } from '../components/auth/TurnstileWidget';
 
 export default function LoginScreen() {
   const [mode, setMode] = useState<'idle' | 'email'>('idle');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const captchaToken = useRef<string | null>(null);
+  // True once Turnstile fires its callback (or immediately if no site key configured)
+  const [captchaReady, setCaptchaReady] = useState(!process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY);
+
+  async function handleDemo() {
+    setDemoBusy(true);
+    try {
+      const { error } = await supabase.auth.signInAnonymously({
+        options: captchaToken.current ? { captchaToken: captchaToken.current } : undefined,
+      });
+      captchaToken.current = null;
+      if (error) {
+        // Anonymous auth not enabled — fall back to unauthenticated demo
+        router.replace('/(app)');
+      }
+      // On success, onAuthStateChange in _layout.tsx fires and navigates to /(app)
+    } catch {
+      router.replace('/(app)');
+    } finally {
+      setDemoBusy(false);
+    }
+  }
+
+  // RFC 5322 simplified — requires local@domain.tld structure
+  function isValidEmail(e: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.trim());
+  }
 
   async function handleMagicLink() {
-    if (!email.includes('@')) return;
+    if (!isValidEmail(email) || !captchaReady || !captchaToken.current) return;
     setBusy(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        ...(captchaToken.current ? { captchaToken: captchaToken.current } : {}),
+      },
     });
+    captchaToken.current = null;
     setBusy(false);
     if (error) {
       Alert.alert('Something went wrong', error.message);
@@ -86,7 +119,7 @@ export default function LoginScreen() {
                   autoFocus
                   value={email}
                   onChangeText={setEmail}
-                  onSubmitEditing={handleMagicLink}
+                  onSubmitEditing={() => captchaReady && handleMagicLink()}
                   placeholder="you@somewhere.com"
                   placeholderTextColor={T.muted}
                   keyboardType="email-address"
@@ -94,23 +127,34 @@ export default function LoginScreen() {
                   returnKeyType="send"
                   style={[styles.emailInput, { color: T.ink, borderBottomColor: T.hair }]}
                 />
+                {/* Turnstile appears inline, only in email mode */}
+                <View style={styles.captcha}>
+                  <TurnstileWidget
+                    onVerify={(token) => { captchaToken.current = token; setCaptchaReady(true); }}
+                    onExpire={() => { captchaToken.current = null; setCaptchaReady(false); }}
+                    onError={() => { captchaToken.current = null; setCaptchaReady(false); }}
+                  />
+                </View>
                 <TouchableOpacity
                   onPress={handleMagicLink}
-                  disabled={busy || !email.includes('@')}
+                  disabled={busy || !isValidEmail(email) || !captchaReady}
                   style={[
                     styles.sendButton,
-                    { backgroundColor: email.includes('@') ? T.ink : T.hair },
+                    { backgroundColor: (isValidEmail(email) && captchaReady) ? T.ink : T.hair },
                   ]}
                 >
                   {busy ? (
                     <ActivityIndicator size="small" color={T.bg} />
                   ) : (
-                    <Text style={[styles.sendButtonText, { color: email.includes('@') ? T.bg : T.muted }]}>
-                      Send magic link
+                    <Text style={[styles.sendButtonText, { color: (isValidEmail(email) && captchaReady) ? T.bg : T.muted }]}>
+                      {captchaReady ? 'Send magic link' : 'Verifying…'}
                     </Text>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setMode('idle')} style={styles.backLink}>
+                <TouchableOpacity
+                  onPress={() => { setMode('idle'); setCaptchaReady(false); captchaToken.current = null; }}
+                  style={styles.backLink}
+                >
                   <Text style={[styles.backLinkText, { color: T.muted }]}>Back</Text>
                 </TouchableOpacity>
               </View>
@@ -134,7 +178,8 @@ export default function LoginScreen() {
 
           {/* Demo shortcut */}
           <TouchableOpacity
-            onPress={() => router.replace('/(app)')}
+            onPress={handleDemo}
+            disabled={demoBusy}
             style={[styles.card, { backgroundColor: T.surface, borderColor: T.hair }]}
             activeOpacity={0.7}
           >
@@ -146,10 +191,14 @@ export default function LoginScreen() {
                 <Text style={[styles.optionTitle, { color: T.ink }]}>Try the demo</Text>
                 <Text style={[styles.optionSub, { color: T.muted }]}>No account needed</Text>
               </View>
-              <Text style={[styles.arrow, { color: T.muted }]}>›</Text>
+              {demoBusy
+                ? <ActivityIndicator size="small" color={T.muted} />
+                : <Text style={[styles.arrow, { color: T.muted }]}>›</Text>
+              }
             </View>
           </TouchableOpacity>
         </View>
+
 
         {/* Footer */}
         <View style={styles.footer}>
@@ -227,6 +276,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12, alignItems: 'center',
   },
   devSkipText: { fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
+  captcha: { marginTop: 14, alignItems: 'flex-start' },
   footer: { position: 'absolute', bottom: 38, left: 32, right: 32 },
   footerText: { fontSize: 10.5, lineHeight: 16, letterSpacing: -0.05, textAlign: 'center' },
 });

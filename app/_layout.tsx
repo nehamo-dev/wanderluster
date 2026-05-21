@@ -2,8 +2,20 @@ import { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
+
+// Suppress the default blue browser focus ring and replace with a warm neutral
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    *:focus { outline-color: #c4b89a !important; }
+    *:focus-visible { outline-color: #c4b89a !important; outline-offset: 2px; }
+    input, textarea, select { caret-color: #a8624c; }
+  `;
+  document.head.appendChild(style);
+}
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);

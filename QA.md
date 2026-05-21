@@ -206,7 +206,82 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 
 ---
 
-## 13. Reported bugs tracker
+## 13. Supabase storage
+
+Regression: data not persisting across sessions for authenticated users; demo mode broken by Supabase errors.
+
+- [ ] **Demo mode**: tap "Try the demo" → home screen loads with mock wishlist and no folios
+- [ ] **Demo mode**: create a folio via Wayfinder → appears in "YOUR PLANS" on home screen
+- [ ] **Demo mode**: refresh page → folio still present (persisted in localStorage)
+- [ ] **Authenticated mode**: log in via magic link → home screen loads folios from Supabase
+- [ ] **First login**: if localStorage had a folio before login, it migrates to Supabase (appears after reload)
+- [ ] **Authenticated mode**: create a folio → verify row appears in Supabase `folios` table
+- [ ] **Authenticated mode**: add a wishlist item → verify row appears in `wishlist_items` table
+- [ ] **Authenticated mode**: update settings → verify row upserted in `user_settings` table
+- [ ] **Sign out → sign back in**: folios/wishlist are reloaded from Supabase correctly
+- [ ] RLS check: `curl` with anon key returns `[]` for all 3 tables (no data leakage between users)
+
+---
+
+## 14. Auth & security
+
+- [ ] All AI API routes (`/api/compose`, `/api/wayfinder`, `/api/wishlist`, `/api/suggest`, `/api/feedback`) return `401` if the `Authorization` header is missing
+- [ ] Demo users (anonymous sign-in) can still use Wayfinder — their Supabase JWT is accepted
+- [ ] Rate limit: hitting `/api/compose` 11× in 10 min returns `429 Too Many Requests`
+- [ ] Magic link login: entering an email and submitting sends a link (Supabase dashboard confirms request)
+- [ ] Cloudflare Turnstile widget appears inline after tapping "Continue with email" — not on the splash/idle state
+- [ ] "Send magic link" button stays disabled until the Turnstile token is ready (shows "Verifying…")
+- [ ] Pressing Enter in the email field does NOT submit while Turnstile is still verifying
+- [ ] Security headers present on Vercel responses: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`
+- [ ] `googleAccessToken` is NOT written to `wl-settings` in localStorage (open DevTools → Application → Local Storage to verify)
+
+---
+
+## 15. Settings — profile & account
+
+- [ ] Settings page shows correct email address for signed-in user
+- [ ] Tapping "Your name" row makes a text input appear inline (no modal/sheet)
+- [ ] Saving a name shows the ✓ Saved toast
+- [ ] Tapping "Home city" row expands an inline search field with live autocomplete
+- [ ] Selecting a city result fills the input and hides the suggestions list
+- [ ] Saving home city shows the ✓ Saved toast and collapses the section
+- [ ] Cancelling home city edit leaves the previous value unchanged
+- [ ] Tapping "Travel preferences" expands inline chip selector + note input
+- [ ] Selecting a chip adds it as an active tag above the note field
+- [ ] Saving prefs shows ✓ Saved toast and collapses section
+- [ ] "Connect" buttons for Google Calendar and Gmail are **outlined** (ghost style, not solid black)
+- [ ] Avatar circle shows a tappable ✎ badge when signed in; clicking opens a file picker
+- [ ] Uploading a photo updates the avatar and shows ✓ Saved toast
+- [ ] "Sign out" is displayed in **muted gray** (not red)
+- [ ] Tapping "Sign out" navigates to `/login`
+
+---
+
+## 16. Settings — sign out data isolation (regression: name persisted after sign out)
+
+- [ ] Sign in as User A, set a name (e.g. "Nemo") → name appears in home screen greeting and Settings
+- [ ] Sign out → immediately lands on login screen
+- [ ] Choose "Try the demo" (unauthenticated) → home screen greeting says "Good [time], Traveler." (NOT "Nemo")
+- [ ] Open Settings in demo mode → "Your name" row shows placeholder "Add your name" (not User A's name)
+- [ ] Open DevTools → Application → Local Storage → `wl-settings` should be absent or contain an empty name after sign-out
+
+---
+
+## 17. Home screen — dynamic greeting & avatar
+
+- [ ] Between 05:00–11:59 the greeting reads "Good morning, [name]."
+- [ ] Between 12:00–16:59 the greeting reads "Good afternoon, [name]."
+- [ ] Between 17:00–20:59 the greeting reads "Good evening, [name]."
+- [ ] Before 05:00 or after 21:00 the greeting reads "Good night, [name]."
+- [ ] When no name is set, greeting reads "Good [time], Traveler."
+- [ ] When name is "Neha Monga", greeting reads "Good [time], Neha." (first name only)
+- [ ] Top-right avatar shows the first letter of the user's name (e.g. "N" for Neha)
+- [ ] When no name is set, top-right avatar shows "✦" glyph
+- [ ] After setting a name in Settings, returning to Home updates the greeting and avatar without reload
+
+---
+
+## 18. Reported bugs tracker
 
 | # | Bug | Section |
 |---|-----|---------|
@@ -232,3 +307,5 @@ Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead re
 | 20 | WayfinderDock showed folio-specific suggestions on every screen | § 4 |
 | 21 | Wishlist stale messages bled between sessions (`wishlistMode` missing from dep array) | § 8c |
 | 22 | Map address link not opening (Linking.openURL async; blocked by popup blocker on web) | § 8 |
+| 23 | Settings name/city persisted after sign-out (localStorage not cleared on SIGNED_OUT event) | § 16 |
+| 24 | Signed-in user's trips + wishlist visible in demo mode after sign-out (same root cause: SIGNED_OUT not handled in folios/wishlist contexts) | § 16 |

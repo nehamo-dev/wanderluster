@@ -1,6 +1,10 @@
 import Groq from 'groq-sdk';
+import { requireAuth, checkRateLimit, rateLimitedResponse } from '../../lib/api-auth';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// 20 wishlist additions per user per 5 minutes
+const RATE_LIMIT = { max: 20, windowMs: 5 * 60 * 1000 };
 
 const SYSTEM = `You are a travel expert. Given a destination name, return a JSON object with these exact fields. No markdown, no explanation. Return ONLY valid JSON.
 
@@ -24,6 +28,15 @@ const SYSTEM = `You are a travel expert. Given a destination name, return a JSON
 
 export async function POST(request: Request) {
   try {
+    // Auth required
+    const auth = await requireAuth(request);
+    if (auth.error) return auth.error;
+
+    // Rate limit per user
+    if (!checkRateLimit(`wishlist:${auth.userId}`, RATE_LIMIT.max, RATE_LIMIT.windowMs)) {
+      return rateLimitedResponse();
+    }
+
     const { destination } = await request.json() as { destination: string };
 
     if (!destination?.trim()) {

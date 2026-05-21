@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet,
@@ -14,6 +14,8 @@ import { AddWishlistTile } from '../../components/home/AddWishlistTile';
 import { useWayfinder } from '../../lib/wayfinder-context';
 import { useFolios } from '../../lib/folios-context';
 import { useWishlist } from '../../lib/wishlist-context';
+import { useSettings } from '../../lib/settings-context';
+import { supabase } from '../../lib/supabase';
 
 function SmallCaps({ children, style }: { children: string; style?: object }) {
   return (
@@ -21,11 +23,42 @@ function SmallCaps({ children, style }: { children: string; style?: object }) {
   );
 }
 
+function getTimeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 5)  return 'Good night';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+}
+
 export default function HomeScreen() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const { openWayfinder, openWishlist, editFolio } = useWayfinder();
   const { planned, deleteFolio } = useFolios();
   const { items: wishlistItems, deleteItem: deleteWishlistItem } = useWishlist();
+  const { settings } = useSettings();
+
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserEmail(session?.user?.email ?? null);
+      setIsAnonymous(!session?.user?.email);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserEmail(session?.user?.email ?? null);
+      setIsAnonymous(!session?.user?.email);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const firstName = settings.name ? settings.name.trim().split(' ')[0] : '';
+  // Demo → "Maya"/"M". Authenticated with no name → email initial / "Traveler".
+  const emailInitial = userEmail ? userEmail[0].toUpperCase() : null;
+  const displayName = firstName || (isAnonymous ? 'Maya' : 'Traveler');
+  const avatarInitial = firstName ? firstName[0].toUpperCase() : (isAnonymous ? 'M' : (emailInitial ?? '✦'));
 
   const hasWishlist = wishlistItems.length > 0;
 
@@ -48,14 +81,14 @@ export default function HomeScreen() {
               style={[styles.avatar, { backgroundColor: T.surface, borderColor: T.hair }]}
               activeOpacity={0.7}
             >
-              <Text style={[styles.avatarText, { color: T.sub }]}>M</Text>
+              <Text style={[styles.avatarText, { color: T.sub }]}>{avatarInitial}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Greeting */}
           <View style={styles.greeting}>
             <SmallCaps>{today}</SmallCaps>
-            <Text style={[styles.greetingTitle, { color: T.ink }]}>Good morning, Maya.</Text>
+            <Text style={[styles.greetingTitle, { color: T.ink }]}>{getTimeGreeting()}, {displayName}.</Text>
             <Text style={[styles.greetingSub, { color: T.muted }]}>Where to next?</Text>
           </View>
 

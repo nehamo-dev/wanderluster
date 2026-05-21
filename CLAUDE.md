@@ -1,6 +1,6 @@
 # Wanderluster — Claude Project Guide
 
-AI travel planning app. Users describe a trip in natural language (or paste a link / upload a file), and Wayfinder (the AI concierge) builds a structured day-by-day folio. Folios, wishlist items, and settings all persist in localStorage; there is no backend database yet.
+AI travel planning app. Users describe a trip in natural language (or paste a link / upload a file), and Wayfinder (the AI concierge) builds a structured day-by-day folio. Folios, wishlist items, and settings persist in Supabase for authenticated users, and in localStorage for demo (unauthenticated) users.
 
 ---
 
@@ -11,9 +11,10 @@ AI travel planning app. Users describe a trip in natural language (or paste a li
 | Framework | Expo SDK 54 · Expo Router 6 · React Native Web |
 | Language | TypeScript (strict-ish) |
 | AI | Groq `llama-3.3-70b-versatile` via `groq-sdk` |
+| Venue photos | Google Places API (Find Place + Photos) |
 | Hosting | Vercel (static web export + edge API routes) |
-| Auth | Supabase (magic link) — not fully wired yet |
-| Storage | `localStorage` via `lib/storage.ts` |
+| Auth | Supabase (magic link) |
+| Storage | Supabase (authenticated) · `localStorage` (demo/offline fallback) |
 
 ---
 
@@ -45,6 +46,7 @@ app/api/               # Expo Router API routes (edge functions on Vercel)
   compose+api.ts       # POST /api/compose — streaming JSON folio generation
   wayfinder+api.ts     # POST /api/wayfinder — streaming chat
   wishlist+api.ts      # POST /api/wishlist — non-streaming wishlist item generation
+  place-photo+api.ts   # GET  /api/place-photo — Google Places venue photo lookup
   suggest+api.ts       # POST /api/suggest
   feedback+api.ts      # POST /api/feedback
 
@@ -55,13 +57,15 @@ components/
   wishlist/            # WishlistComposerSheet (legacy, no longer used from home)
 
 lib/
-  folios-context.tsx   # planned folios — CRUD + localStorage
-  wishlist-context.tsx # wishlist items — CRUD + localStorage
-  settings-context.tsx # user settings — homeCity, travelTags, Google OAuth
+  folios-context.tsx   # planned folios — CRUD + Supabase (authed) / localStorage (demo)
+  wishlist-context.tsx # wishlist items — CRUD + Supabase (authed) / localStorage (demo)
+  settings-context.tsx # user settings — homeCity, travelTags, Google OAuth + Supabase sync
   wayfinder-context.tsx# global openWayfinder / openWishlist / editFolio / openCompose
   parseCompose.ts      # JSON extraction + sanitisation for AI folio output
   storage.ts           # thin localStorage wrapper (SSR-safe)
   supabase.web.ts      # Supabase client for web (uses || fallback, not ! assertion)
+  supabase-server.ts   # Supabase client for API routes (no browser storage, persistSession: false)
+  api-auth.ts          # requireAuth() + checkRateLimit() + rateLimitedResponse() — used by all API routes
 
 constants/
   theme.ts             # Palette type + 4 palettes (bone, stone, ivory, ink)
@@ -129,9 +133,62 @@ WayfinderSheet is the single modal for everything: new trip, edit trip, wishlist
 
 ---
 
+## Security architecture
+
+### Authentication on API routes
+
+All AI routes (`/api/compose`, `/api/wayfinder`, `/api/wishlist`, `/api/suggest`, `/api/feedback`) require a valid Supabase JWT. The shared helper in `lib/api-auth.ts` handles this:
+
+```ts
+const auth = await requireAuth(request);  // extracts Authorization: Bearer <token>
+if (auth.error) return auth.error;        // 401 if missing/invalid
+```
+
+**Demo users are not excluded** — `signInAnonymously()` in `login.tsx` gives demo users a real Supabase JWT, so auth works transparently for them too.
+
+The client (`WayfinderSheet.tsx`) calls `supabase.auth.getSession()` before every API request and injects the token via `getAuthHeaders()`. If no session is active, the `Authorization` header is simply omitted and the route returns 401.
+
+### Rate limiting
+
+In-memory sliding-window rate limiter in `lib/api-auth.ts` (`checkRateLimit`). Limits per route per user:
+
+| Route | Limit |
+|---|---|
+| /api/compose | 10 per 10 min |
+| /api/wayfinder | 30 per 5 min |
+| /api/wishlist | 20 per 5 min |
+| /api/suggest | 60 per 5 min |
+
+⚠️ In-memory only — resets when Vercel spins down a function instance. For production-grade distributed limiting, replace with Upstash Redis + `@upstash/ratelimit`.
+
+### SSRF protection (compose link mode)
+
+`fetchUrl()` in `compose+api.ts`:
+- `https:` scheme only — rejects `http:`, `file:`, `ftp:` etc.
+- Blocks RFC-1918 private ranges, loopback, APIPA, IPv6 link-local via `PRIVATE_HOST_RE`
+- Validates `Content-Type` header (must contain `text/`) before reading body
+- 500 KB byte cap via `ReadableStream` reader with `reader.cancel()` on overflow
+- 8-second timeout via `AbortSignal.timeout`
+
+### Security headers (vercel.json)
+
+Applied to all routes (`source: "/(.*)"`) on Vercel:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `Content-Security-Policy` — allows Cloudflare Turnstile iframe, Supabase API calls, Wikimedia images, Google Maps images
+
+### Token handling
+
+`googleAccessToken` in `UserSettings` is **memory-only** — `sanitizeForPersistence()` strips it before any write to localStorage or Supabase. Tokens are never stored at rest.
+
+---
+
 ## API routes
 
-All routes in `app/api/` follow Expo Router convention (`export async function POST(request: Request)`).
+All routes in `app/api/` follow Expo Router convention (`export async function POST/GET(request: Request)`).
 
 | Route | Model | Streaming | Returns |
 |---|---|---|---|
@@ -140,6 +197,7 @@ All routes in `app/api/` follow Expo Router convention (`export async function P
 | /api/wishlist | llama-3.3-70b-versatile | no | JSON WishlistItem fields |
 | /api/suggest | llama-3.3-70b-versatile | no | suggestions array |
 | /api/feedback | llama-3.3-70b-versatile | no | ack |
+| /api/place-photo | Google Places API | no | `{ url: string \| null }` |
 
 **vercel.json** has explicit pass-through rewrites for every `/api/*` route before the `/(.*) → /index.html` catch-all. Always add a new route to vercel.json when adding an API file.
 
@@ -163,13 +221,51 @@ Note: `curl` without `-A "Mozilla/5.0"` returns 403 from Wikimedia — that's a 
 
 ---
 
-## localStorage keys
+## Venue photos (EventRow)
+
+Each event with `kind: hotel | food | activity` shows a 48×48 rounded thumbnail fetched from Google Places.
+
+**Flow:**
+1. `EventRow` calls `GET /api/place-photo?q=<title+location>` on mount
+2. Server calls Google Places "Find Place" → gets `photo_reference`
+3. Server resolves `place/photo?photo_reference=…&key=KEY` → follows redirect → returns the public `lh3.googleusercontent.com` URL
+4. Client renders `<Image source={{ uri: url }} />` — the API key never reaches the browser
+
+**Caching:** results are stored in a module-level `Map<string, string | null>` (`_photoCache` in `EventRow.tsx`). Each unique `title|location` key is only fetched once per page session.
+
+**Graceful degradation:** if `GOOGLE_MAPS_API_KEY` is unset or the lookup fails, the endpoint returns `{ url: null }` and no image is shown — no broken image states.
+
+**Required env var:** `GOOGLE_MAPS_API_KEY` (server-side only, not `EXPO_PUBLIC_`). Needs **Places API** and **Maps JavaScript API** enabled in Google Cloud Console. Add to `.env.local` and Vercel Environment Variables.
+
+**Event kinds that get photos:** `hotel`, `food`, `activity`. Flights, transport, and flag events never fetch a photo.
+
+---
+
+## Storage
+
+### Supabase tables (authenticated users)
+
+| Table | Key column | Data column | Notes |
+|---|---|---|---|
+| `folios` | `id TEXT PK` | `data JSONB` | Full `Folio` object. `user_id UUID FK → auth.users`. RLS: `auth.uid() = user_id`. |
+| `wishlist_items` | `id TEXT PK` | `data JSONB` | Full `WishlistItem` object. Same RLS. |
+| `user_settings` | `user_id UUID PK` | `data JSONB` | One row per user. Upserted on every `updateSettings()` call. |
+
+### localStorage keys (demo / offline fallback)
 
 | Key | Context | Type |
 |---|---|---|
-| `wl-folios` | FoliosProvider | `Folio[]` |
+| `wl-planned` | FoliosProvider | `Folio[]` |
 | `wl-wishlist` | WishlistProvider | `WishlistItem[]` |
 | `wl-settings` | SettingsProvider | `UserSettings` |
+
+### How dual-mode works
+
+Each provider subscribes to `supabase.auth.onAuthStateChange`:
+- **No session** (demo mode) → reads/writes localStorage only.
+- **Session present** → loads from Supabase on mount; all writes go to Supabase + localStorage cache.
+- **First login with local data** → migrates localStorage data to Supabase automatically (one-time upsert).
+- `addFolio()` must stay **synchronous** (returns the new ID immediately for navigation). Supabase write happens in the background via a fire-and-forget async call.
 
 ---
 
@@ -219,3 +315,10 @@ Run `QA.md` checklist. The most important regressions to check:
 - **Map links on web**: `Linking.openURL` resolves asynchronously on web (fires `window.open` outside the user gesture context), which popup blockers kill. Use `Platform.OS === 'web' ? (globalThis as any).open(url, '_blank', 'noopener,noreferrer') : Linking.openURL(url)` in EventRow's `openMap()`.
 - **Vision model**: screenshot / image upload uses `meta-llama/llama-4-scout-17b-16e-instruct` (Groq). `llama-3.2-11b-vision-preview` is decommissioned — do not use it.
 - **WayfinderDock suggestions**: the `SUGGESTIONS` array in `WayfinderDock.tsx` must be generic travel prompts, not folio-specific ("What should I do on Day 4?" etc.). The dock appears on every screen, not just trip detail.
+- **Supabase storage — dual-mode pattern**: all three context providers (folios, wishlist, settings) support two modes: Supabase when a session is present, localStorage when demo/unauthenticated. The `userIdRef` pattern (a `useRef` updated inside `onAuthStateChange`) lets CRUD functions fire-and-forget Supabase writes without needing the userId in their closure scope.
+- **`wl-planned` not `wl-folios`**: the localStorage key for user folios is `wl-planned` (matches the original key). Do not rename it or existing demo-mode data will be lost.
+- **Wishlist mock items not migrated**: on first login, only user-created wishlist items (those not in the mock `WISHLIST` array) are migrated to Supabase. Mock items are always injected client-side from `data/mock.ts`.
+- **Supabase DDL requires dashboard access**: there's no service role key in `.env.local`, so you cannot run DDL via `curl` or the JS client. Use the SQL Editor at `https://supabase.com/dashboard/project/fxhyqtyhxcdzrozmabxr/sql/new`. The Monaco editor instance is accessible via `window.monaco.editor.getEditors()[0]`. When the user asks for DB schema changes, provide the SQL to paste — do not automate the browser.
+- **Event details always expanded**: `EventRow` no longer has an expand/collapse toggle. The details panel (tips, location/map link) is always visible when the event has them. There is no `expanded` state, no chevron, and the row's `TouchableOpacity` has `onPress={undefined}`.
+- **Compose skips suggested flights/hotels when booked**: the compose system prompt includes a `FLIGHTS & HOTELS — SKIP IF ALREADY BOOKED` rule. If the user's input says their flights or hotel are sorted/booked/handled, the AI omits suggested flight/hotel events and focuses on activities and food instead.
+- **Venue photo cache key**: `_photoCache` in `EventRow.tsx` uses `"${event.title}|${event.location}"` as the key. If a venue has no location, it falls back to just the title. The cache is module-level (not React state) so it persists across re-renders but resets on page reload.

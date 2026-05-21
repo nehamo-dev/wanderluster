@@ -1,7 +1,14 @@
 import Groq from 'groq-sdk';
 import { extractAndParseFolio } from '../../lib/parseCompose';
+import { requireAuth, checkRateLimit, rateLimitedResponse } from '../../lib/api-auth';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// 10 compose calls per user per 10 minutes — generous for demo use
+const RATE_LIMIT = { max: 10, windowMs: 10 * 60 * 1000 };
+
+// Max base64 image size ~3.7 MB decoded
+const MAX_IMAGE_DATA_LEN = 5_000_000;
 
 function buildSystem(): string {
   const today = new Date().toLocaleDateString('en-US', {
@@ -69,6 +76,11 @@ SUGGESTED vs CONFIRMED:
 - "suggested": true   → EVERYTHING else you are recommending — hotels, restaurants, sights, transport, any idea of your own. When in doubt, mark suggested.
 - NEVER invent confirmed bookings. If the user only mentioned dates and a city, every event except their stated details must be suggested: true.
 
+FLIGHTS & HOTELS — SKIP IF ALREADY BOOKED:
+- If the user says their flights are booked, sorted, or handled (any phrasing), do NOT generate any suggested flight events at all. Only include flight events if the user provided a specific flight number or departure details.
+- If the user says their hotel, accommodation, or place to stay is booked, sorted, or handled, do NOT generate any suggested hotel events. Only include hotel events if the user named the specific hotel.
+- When in doubt about whether something is booked, ask less rather than suggest more — focus the itinerary on activities, food, and experiences instead.
+
 DATES:
 - Use today's date (${today}) to calculate the correct day of week for every date in the itinerary.
 - Date format: "Mon · Mar 10" — the three-letter day abbreviation must be mathematically correct.
@@ -104,13 +116,59 @@ FLIGHT ROUTING — follow these rules exactly for every flight event:
 - routeType: "direct" | "connecting" | "surface" — required for kind "flight"`;
 }
 
-async function fetchUrl(url: string): Promise<string> {
-  const res = await fetch(url, {
+// ── SSRF protection ───────────────────────────────────────────────────────────
+
+const PRIVATE_HOST_RE =
+  /^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|169\.254\.|0\.|::1$|fc00:|fe80:)/i;
+
+async function fetchUrl(rawUrl: string): Promise<string> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('Invalid URL');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Only https:// URLs are allowed');
+  }
+
+  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
+    throw new Error('Private or internal URLs are not allowed');
+  }
+
+  const res = await fetch(parsed.href, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Wanderluster/1.0)' },
     signal: AbortSignal.timeout(8000),
   });
-  const html = await res.text();
-  return html
+
+  // Reject non-text responses before reading the body
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('text/')) {
+    throw new Error('URL does not return a text document');
+  }
+
+  // Read with a hard byte cap to avoid large downloads
+  const MAX_BYTES = 500_000;
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+
+  const decoder = new TextDecoder();
+  let text = '';
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.length;
+    text += decoder.decode(value, { stream: true });
+    if (totalBytes > MAX_BYTES) {
+      reader.cancel();
+      break;
+    }
+  }
+
+  return text
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, ' ')
@@ -121,6 +179,15 @@ async function fetchUrl(url: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
+    // Auth required
+    const auth = await requireAuth(request);
+    if (auth.error) return auth.error;
+
+    // Rate limit per user
+    if (!checkRateLimit(`compose:${auth.userId}`, RATE_LIMIT.max, RATE_LIMIT.windowMs)) {
+      return rateLimitedResponse();
+    }
+
     const { mode, input, imageData } = await request.json() as {
       mode: 'words' | 'link' | 'screenshots';
       input: string;
@@ -129,6 +196,16 @@ export async function POST(request: Request) {
 
     if (!input?.trim() && !imageData) {
       return Response.json({ error: 'No input provided' }, { status: 400 });
+    }
+
+    // Guard: imageData must be a data URI and under size cap
+    if (imageData) {
+      if (!imageData.startsWith('data:image/')) {
+        return Response.json({ error: 'Invalid image format' }, { status: 400 });
+      }
+      if (imageData.length > MAX_IMAGE_DATA_LEN) {
+        return Response.json({ error: 'Image too large (max ~3.7 MB)' }, { status: 413 });
+      }
     }
 
     const SYSTEM = buildSystem();
@@ -157,10 +234,11 @@ export async function POST(request: Request) {
     // Text / link mode: stream so the connection stays alive
     let content = input.trim();
     if (mode === 'link') {
-      try { content = await fetchUrl(input.trim()); }
-      catch {
+      try {
+        content = await fetchUrl(input.trim());
+      } catch (err: any) {
         return Response.json(
-          { error: 'Could not fetch that URL. Try describing the trip in words instead.' },
+          { error: err?.message ?? 'Could not fetch that URL. Try describing the trip in words instead.' },
           { status: 422 }
         );
       }

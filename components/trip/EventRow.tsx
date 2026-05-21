@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Linking, Platform, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Linking, Platform, StyleSheet, Image } from 'react-native';
+
+// Module-level cache — survives re-renders, cleared on page reload
+const _photoCache = new Map<string, string | null>();
+const PHOTO_KINDS = new Set(['hotel', 'food', 'activity']);
 import type { Palette } from '../../constants/theme';
 import type { TripEvent } from '../../types';
 
@@ -23,7 +27,6 @@ export function EventRow({
   onConfirm, onRemove, onRemoveConfirmed,
   loadingAlternative,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
   const [reasonVisible, setReasonVisible] = useState(false);
   const [confirmChoice, setConfirmChoice] = useState(false);
 
@@ -32,6 +35,34 @@ export function EventRow({
   const isConfirmed = !isSuggested;
   const hasTips = event.tips && event.tips.length > 0;
   const hasDetails = hasTips || event.rating != null || event.location != null;
+
+  // ── Venue photo ───────────────────────────────────────────────────────────
+  const canHavePhoto = PHOTO_KINDS.has(event.kind);
+  const photoCacheKey = `${event.title}|${event.location ?? ''}`;
+  const [photoUrl, setPhotoUrl] = useState<string | null>(
+    () => _photoCache.has(photoCacheKey) ? (_photoCache.get(photoCacheKey) ?? null) : null
+  );
+
+  useEffect(() => {
+    if (!canHavePhoto) return;
+    if (_photoCache.has(photoCacheKey)) {
+      setPhotoUrl(_photoCache.get(photoCacheKey) ?? null);
+      return;
+    }
+    const q = event.location
+      ? `${event.title} ${event.location}`
+      : event.title;
+    fetch(`/api/place-photo?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then((data: { url: string | null }) => {
+        _photoCache.set(photoCacheKey, data.url ?? null);
+        setPhotoUrl(data.url ?? null);
+      })
+      .catch(() => {
+        _photoCache.set(photoCacheKey, null);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoCacheKey, canHavePhoto]);
 
   function openMap() {
     if (!event.location) return;
@@ -64,8 +95,8 @@ export function EventRow({
   return (
     <View>
       <TouchableOpacity
-        activeOpacity={hasDetails ? 0.75 : 1}
-        onPress={hasDetails ? () => { setExpanded(e => !e); setConfirmChoice(false); } : undefined}
+        activeOpacity={1}
+        onPress={undefined}
       >
         <View style={[styles.row, isSuggested && styles.suggestedRow]}>
           {/* time gutter */}
@@ -151,6 +182,15 @@ export function EventRow({
             )}
           </View>
 
+          {/* venue photo */}
+          {photoUrl && (
+            <Image
+              source={{ uri: photoUrl }}
+              style={styles.venuePhoto}
+              resizeMode="cover"
+            />
+          )}
+
           {/* suggested: + / × */}
           {isSuggested && (
             <View style={styles.actions}>
@@ -174,7 +214,7 @@ export function EventRow({
           {/* confirmed: × to flag */}
           {isConfirmed && onRemoveConfirmed && (
             <TouchableOpacity
-              onPress={() => { setConfirmChoice(c => !c); setExpanded(false); }}
+              onPress={() => { setConfirmChoice(c => !c); }}
               style={[styles.actionBtn, { backgroundColor: 'transparent', borderWidth: 0.5, borderColor: T.hair }]}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
             >
@@ -182,10 +222,6 @@ export function EventRow({
             </TouchableOpacity>
           )}
 
-          {/* expand chevron */}
-          {hasDetails && !isSuggested && !confirmChoice && (
-            <Text style={[styles.chevron, { color: T.muted }]}>{expanded ? '∧' : '∨'}</Text>
-          )}
         </View>
       </TouchableOpacity>
 
@@ -218,8 +254,8 @@ export function EventRow({
         </View>
       )}
 
-      {/* expanded details */}
-      {expanded && hasDetails && (
+      {/* details — always visible */}
+      {hasDetails && (
         <View style={[styles.details, { borderTopColor: T.hair }]}>
           {hasTips && (
             <View style={styles.tipsSection}>
@@ -310,7 +346,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   actionText: { fontSize: 15, lineHeight: 17, fontWeight: '400' },
-  chevron: { fontSize: 10, flexShrink: 0, marginLeft: 4 },
+  venuePhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
   choicePanel: {
     marginHorizontal: 18,
     marginTop: 0,
