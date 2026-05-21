@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import { requireAuth, checkRateLimit, rateLimitedResponse } from '../lib/api-auth';
 
 export const config = { runtime: 'edge' };
 
@@ -101,6 +102,10 @@ const CORS = {
 export default async function handler(request: Request): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+  if (!checkRateLimit(`wayfinder:${auth.userId}`, 30, 5 * 60 * 1000)) return rateLimitedResponse();
 
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
