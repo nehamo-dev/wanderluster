@@ -37,26 +37,61 @@ export function getDestinationPhoto(folioId: string, destination?: string): stri
   return null;
 }
 
-// Fetch the Wikipedia hero image for any destination (for dynamically created trips)
-export async function fetchWikiPhoto(destination: string): Promise<string | null> {
+// Junk image filter — rejects flags, maps, coats of arms, SVGs, passports, etc.
+function isJunkImage(src: string): boolean {
+  const lower = src.toLowerCase();
+  return lower.endsWith('.svg') || lower.includes('.svg.png')
+    || lower.includes('map') || lower.includes('flag') || lower.includes('locator')
+    || lower.includes('marker') || lower.includes('logo') || lower.includes('coat')
+    || lower.includes('outline') || lower.includes('blank') || lower.includes('seal')
+    || lower.includes('satellite') || lower.includes('passport') || lower.includes('document');
+}
+
+// Fetch a single Wikipedia article's image by exact title (follows redirects).
+async function wikiPageImage(title: string): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(destination)}&prop=pageimages&format=json&pithumbsize=900&origin=*&redirects=1`
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=900&origin=*&redirects=1`
     );
     const data = await res.json();
     const pages = data?.query?.pages ?? {};
-    const page = Object.values(pages)[0] as any;
-    const src: string | undefined = page?.thumbnail?.source;
-    if (!src) return null;
-    // Reject maps, flags, diagrams, SVG-derived PNGs (locator maps, coat of arms, etc.)
-    const lower = src.toLowerCase();
-    const isJunk = lower.endsWith('.svg') || lower.includes('.svg.png')
-      || lower.includes('map') || lower.includes('flag') || lower.includes('locator')
-      || lower.includes('marker') || lower.includes('logo') || lower.includes('coat')
-      || lower.includes('outline') || lower.includes('blank') || lower.includes('seal');
-    if (isJunk) return null;
-    return src.split('?')[0]; // strip UTM params
+    const src: string = (Object.values(pages)[0] as any)?.thumbnail?.source ?? '';
+    if (src && !isJunkImage(src)) return src.split('?')[0];
+    return null;
   } catch {
     return null;
   }
+}
+
+// Search Wikipedia and return the first non-junk image from the top 2 results.
+// Limiting to 2 prevents irrelevant articles (e.g. "New Zealand rabbit") from matching.
+async function wikiSearch(query: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=2&prop=pageimages&format=json&pithumbsize=900&origin=*`
+    );
+    const data = await res.json();
+    const pages = data?.query?.pages ?? {};
+    const sorted = (Object.values(pages) as any[]).sort((a, b) => (a.index ?? 999) - (b.index ?? 999));
+    for (const page of sorted) {
+      const src: string = page?.thumbnail?.source ?? '';
+      if (src && !isJunkImage(src)) return src.split('?')[0];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Fetch the Wikipedia hero image for any destination (for dynamically created trips).
+// Strategy (each step only runs if the previous returned null):
+//   1. Exact title lookup — fast, works for unambiguous city names
+//   2. "Tourism in X" — works for country/region names whose main article has a flag
+//   3. Search top-2 results — catches disambiguation pages like "Santa Barbara"
+export async function fetchWikiPhoto(destination: string): Promise<string | null> {
+  return (
+    await wikiPageImage(destination) ??
+    await wikiPageImage(`Tourism in ${destination}`) ??
+    await wikiSearch(destination)
+  );
 }
