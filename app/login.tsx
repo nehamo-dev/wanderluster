@@ -18,18 +18,46 @@ export default function LoginScreen() {
   const [demoBusy, setDemoBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const captchaToken = useRef<string | null>(null);
-  // True once Turnstile fires its callback (or immediately if no site key configured)
+  // True once Turnstile fires its callback (or immediately if no site key configured).
+  // The widget is always mounted so a token is available for BOTH email and demo flows.
   const [captchaReady, setCaptchaReady] = useState(!process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY);
+
+  function onTurnstileVerify(token: string) {
+    captchaToken.current = token;
+    setCaptchaReady(true);
+  }
+  function onTurnstileExpire() {
+    captchaToken.current = null;
+    setCaptchaReady(false);
+  }
+  function onTurnstileError() {
+    captchaToken.current = null;
+    setCaptchaReady(false);
+  }
 
   async function handleDemo() {
     setDemoBusy(true);
     try {
+      // If Turnstile hasn't verified yet, wait up to 6 s then proceed anyway
+      if (!captchaToken.current && process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY) {
+        await new Promise<void>(resolve => {
+          const deadline = Date.now() + 6000;
+          const check = () => {
+            if (captchaToken.current || Date.now() > deadline) resolve();
+            else setTimeout(check, 200);
+          };
+          check();
+        });
+      }
+
       const { error } = await supabase.auth.signInAnonymously({
         options: captchaToken.current ? { captchaToken: captchaToken.current } : undefined,
       });
       captchaToken.current = null;
       if (error) {
-        // Anonymous auth not enabled — fall back to unauthenticated demo
+        // Captcha required but token unavailable, or anonymous auth disabled —
+        // fall back gracefully so at least the UI is usable
+        console.warn('[demo] signInAnonymously failed:', error.message);
         router.replace('/(app)');
       }
       // On success, onAuthStateChange in _layout.tsx fires and navigates to /(app)
@@ -127,14 +155,7 @@ export default function LoginScreen() {
                   returnKeyType="send"
                   style={[styles.emailInput, { color: T.ink, borderBottomColor: T.hair }]}
                 />
-                {/* Turnstile appears inline, only in email mode */}
-                <View style={styles.captcha}>
-                  <TurnstileWidget
-                    onVerify={(token) => { captchaToken.current = token; setCaptchaReady(true); }}
-                    onExpire={() => { captchaToken.current = null; setCaptchaReady(false); }}
-                    onError={() => { captchaToken.current = null; setCaptchaReady(false); }}
-                  />
-                </View>
+                {/* Turnstile shown inline in email mode (same widget, always mounted below) */}
                 <TouchableOpacity
                   onPress={handleMagicLink}
                   disabled={busy || !isValidEmail(email) || !captchaReady}
@@ -197,6 +218,16 @@ export default function LoginScreen() {
               }
             </View>
           </TouchableOpacity>
+
+          {/* Turnstile — always mounted so token is ready for both email and demo.
+              Hidden when not in email mode (height collapses, widget stays alive). */}
+          <View style={mode === 'email' ? styles.captcha : styles.captchaHidden}>
+            <TurnstileWidget
+              onVerify={onTurnstileVerify}
+              onExpire={onTurnstileExpire}
+              onError={onTurnstileError}
+            />
+          </View>
         </View>
 
 
@@ -277,6 +308,8 @@ const styles = StyleSheet.create({
   },
   devSkipText: { fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
   captcha: { marginTop: 14, alignItems: 'flex-start' },
+  // Keep the widget in the DOM (so it stays verified) but invisible
+  captchaHidden: { height: 0, overflow: 'hidden', opacity: 0 },
   footer: { position: 'absolute', bottom: 38, left: 32, right: 32 },
   footerText: { fontSize: 10.5, lineHeight: 16, letterSpacing: -0.05, textAlign: 'center' },
 });
