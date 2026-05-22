@@ -6,8 +6,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Palette } from '../../constants/theme';
 import type { Folio } from '../../types';
-import { getDestinationPhoto } from '../../constants/photos';
+import { getDestinationPhoto, fetchWikiPhoto } from '../../constants/photos';
 import { DestinationArt } from '../art/DestinationArt';
+import { useFolios } from '../../lib/folios-context';
 
 interface Props {
   folio: Folio;
@@ -18,7 +19,22 @@ interface Props {
 
 export function FolioTile({ folio, theme: T, onOpen, onDelete }: Props) {
   // Priority: stored photo → static map → art fallback
-  const photo = folio.photo ?? getDestinationPhoto(folio.id, folio.destination);
+  const staticPhoto = folio.photo ?? getDestinationPhoto(folio.id, folio.destination);
+  const [photo, setPhoto] = useState<string | null>(staticPhoto);
+  const { updateFolio } = useFolios();
+
+  // If no photo is stored, fetch one and persist it so it only runs once
+  useEffect(() => {
+    if (staticPhoto || !folio.destination) return;
+    let cancelled = false;
+    fetchWikiPhoto(folio.destination).then(url => {
+      if (cancelled || !url) return;
+      setPhoto(url);
+      updateFolio(folio.id, { ...folio, photo: url });
+    });
+    return () => { cancelled = true; };
+  }, [folio.id]);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
