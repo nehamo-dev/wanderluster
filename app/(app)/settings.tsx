@@ -115,6 +115,7 @@ export default function SettingsScreen() {
   // Inline prefs state
   const [prefsTags, setPrefsTags] = useState<string[]>([]);
   const [prefsNote, setPrefsNote] = useState('');
+  const [customTagInput, setCustomTagInput] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -178,6 +179,13 @@ export default function SettingsScreen() {
 
   function togglePrefsChip(chip: string) {
     setPrefsTags(prev => prev.includes(chip) ? prev.filter(t => t !== chip) : [...prev, chip]);
+  }
+
+  function addCustomTag() {
+    const tag = customTagInput.trim();
+    if (!tag || prefsTags.includes(tag)) return;
+    setPrefsTags(prev => [...prev, tag]);
+    setCustomTagInput('');
   }
 
   function savePrefsInline() {
@@ -505,6 +513,28 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
                       );
                     })}
+                  </View>
+                  {/* Custom tag input */}
+                  <Text style={[styles.chipSectionLabel, { color: T.muted }]}>Add your own</Text>
+                  <View style={[styles.customTagRow, { borderColor: T.hair, backgroundColor: T.bg }]}>
+                    <TextInput
+                      value={customTagInput}
+                      onChangeText={setCustomTagInput}
+                      onSubmitEditing={addCustomTag}
+                      placeholder="e.g. No flying, Train-only, Dog-friendly…"
+                      placeholderTextColor={T.sub}
+                      style={[styles.customTagInput, { color: T.ink }]}
+                      returnKeyType="done"
+                      maxLength={40}
+                    />
+                    <TouchableOpacity
+                      onPress={addCustomTag}
+                      disabled={!customTagInput.trim()}
+                      style={[styles.customTagBtn, { backgroundColor: customTagInput.trim() ? T.ink : T.hair }]}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.customTagBtnText, { color: customTagInput.trim() ? T.bg : T.sub }]}>Add</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.inlineActions}>
                     <TouchableOpacity
@@ -860,6 +890,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
   },
   chipText: { fontSize: 13, letterSpacing: -0.1 },
+  customTagRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 0.5, borderRadius: 10,
+    paddingLeft: 12, overflow: 'hidden',
+  },
+  customTagInput: { flex: 1, fontSize: 13, paddingVertical: 10 },
+  customTagBtn: {
+    paddingHorizontal: 14, paddingVertical: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  customTagBtnText: { fontSize: 13, fontWeight: '500', letterSpacing: -0.1 },
 
   // Toast
   toast: {
