@@ -80,12 +80,45 @@ FLIGHT ROUTING — follow these rules exactly for every flight event:
 - routeType: "direct" | "connecting" | "surface" — required for kind "flight"`;
 }
 
+// SSRF guard: block private/loopback/APIPA/link-local IPs
+const PRIVATE_HOST_RE =
+  /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|::1|fc|fd)/i;
+
 async function fetchUrl(url: string): Promise<string> {
+  // Scheme: https only
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { throw new Error('Invalid URL'); }
+  if (parsed.protocol !== 'https:') throw new Error('Only https:// URLs are supported');
+  if (PRIVATE_HOST_RE.test(parsed.hostname)) throw new Error('URL not allowed');
+
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Wanderluster/1.0)' },
     signal: AbortSignal.timeout(8000),
   });
-  const html = await res.text();
+
+  // Only accept text/* content types
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('text/')) throw new Error('URL did not return a text document');
+
+  // Cap at 500 KB
+  const MAX_BYTES = 500_000;
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.length;
+      if (total > MAX_BYTES) { reader.cancel(); break; }
+      chunks.push(value);
+    }
+  }
+  const html = new TextDecoder().decode(
+    chunks.reduce((acc, c) => { const r = new Uint8Array(acc.length + c.length); r.set(acc); r.set(c, acc.length); return r; }, new Uint8Array(0))
+  );
+
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')

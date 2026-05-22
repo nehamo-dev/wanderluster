@@ -19,6 +19,17 @@ Run every item before pushing. Add new cases whenever a bug is reported.
 
 ---
 
+### 2b. Page-refresh resilience (run for every deploy that touches auth or storage)
+
+Regression: folio lookup read from a static map that wasn't populated until Supabase loaded, causing immediate router.back() on refresh.
+
+- [ ] While logged in as a real user, navigate to a folio, then **hard-refresh the page** (⌘R) — folio should reload (brief spinner is OK), NOT bounce back to home
+- [ ] While in demo mode, create a folio via Wayfinder, then hard-refresh — folio should still be there (localStorage)
+- [ ] Open Wayfinder from inside a user-created trip after a page refresh — subtitle should say "About your [destination] trip", not "Your AI travel concierge"
+- [ ] Tapping "×" on a suggested event after a page refresh should load a replacement, not show "Alternative suggestion" placeholder
+
+---
+
 ### 3. Login page
 
 Regression: demo button disappeared when `__DEV__` gating was used.
@@ -297,3 +308,9 @@ Regression: images go gray when Wikimedia URLs change or width mismatches.
 | 25 | Home screen showed previous auth user's name in demo mode — `settings.name` read without `isAnonymous` guard | § 16, § 17 |
 | 26 | `/api/suggest` called without auth headers — returned 401 silently; suggestion replaced with fallback | § 8 suggest |
 | 27 | `/api/suggest` had no geographic context — replacement events ignored day area, sent traveller across the city | § 8 suggest |
+| 28 | `trip/[id].tsx` read folio from static FOLIOS map — undefined for Supabase-loaded folios on page refresh, causing immediate router.back() | § 2b |
+| 29 | WayfinderSheet folio context null for user-created trips — Wayfinder ran in "new trip" mode instead of "in-trip edit" mode | § 10 |
+| 30 | `removeEvent` auth had stale token bug — suggest call got 401 silently, replacement showed placeholder text | § 8 |
+| 31 | Feedback calls had no auth headers — all feedback data lost with silent 401 | § 8 |
+| 32 | `api/compose.ts` `fetchUrl` had no SSRF protection in deployed Vercel function (only Expo Router copy had it) | security |
+| 33 | `settings-context.tsx` double-hydrate `useEffect` could overwrite Supabase-loaded settings with stale localStorage data | § 15 |

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
-  StyleSheet, Modal, Pressable,
+  StyleSheet, Modal, Pressable, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,8 +47,9 @@ function SmallCaps({ children, color, size = 10 }: { children: string; color: st
 
 export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const folio = FOLIOS[id ?? 'tokyo'];
-  const { deleteFolio, planned } = useFolios();
+  const { deleteFolio, planned, loading: foliosLoading } = useFolios();
+  // Check planned array first (covers Supabase-loaded user folios), then static mock map
+  const folio = planned.find(f => f.id === id) ?? FOLIOS[id ?? 'tokyo'];
   const { editFolio, openWayfinder } = useWayfinder();
   const { items: wishlistItems, addItem: addToWishlist } = useWishlist();
 
@@ -72,6 +73,16 @@ export default function TripScreen() {
   const staticPhoto = folio ? (folio.photo ?? getDestinationPhoto(folio.id, folio.destination)) : null;
   const heroPhoto = staticPhoto ?? wikiPhoto;
 
+  // If folio was undefined on initial render (Supabase hadn't loaded yet), sync days
+  // once the folio becomes available. Only runs when folio.id changes.
+  const didSyncDays = useRef(false);
+  useEffect(() => {
+    if (folio && !didSyncDays.current) {
+      didSyncDays.current = true;
+      setDays(folio.days ?? []);
+    }
+  }, [folio?.id]);
+
   useEffect(() => {
     if (!folio || staticPhoto) return;
     fetchWikiPhoto(folio.destination).then(url => {
@@ -80,7 +91,16 @@ export default function TripScreen() {
   }, [folio?.id]);
 
 
+  // While folios are still loading from Supabase, show a spinner rather than
+  // immediately navigating away — the folio will appear once the load completes.
   if (!folio) {
+    if (foliosLoading) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
+          <ActivityIndicator color={T.accent} />
+        </View>
+      );
+    }
     router.back();
     return null;
   }
@@ -106,16 +126,21 @@ export default function TripScreen() {
     if (!day) return;
     const event = day.events[eventIdx];
 
-    fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        folioId: folio.id,
-        destination: folio.destination,
-        event: { kind: event.kind, title: event.title, time: event.time },
-        reason,
-      }),
-    }).catch(() => {});
+    // Fire-and-forget feedback — attach auth headers so the endpoint accepts it
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      fetch('/api/feedback', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          folioId: folio.id,
+          destination: folio.destination,
+          event: { kind: event.kind, title: event.title, time: event.time },
+          reason,
+        }),
+      }).catch(() => {});
+    });
 
     if (reason === 'incorrect_data') {
       setDays(prev => prev.map(d => {
@@ -143,7 +168,18 @@ export default function TripScreen() {
     setLoadingAlt(prev => ({ ...prev, [key]: true }));
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Proactively refresh token if it's stale (same approach as WayfinderSheet)
+      let { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const secsLeft = (session.expires_at ?? 0) - Math.floor(Date.now() / 1000);
+        if (secsLeft < 300) {
+          const { data } = await supabase.auth.refreshSession();
+          if (data.session) session = data.session;
+        }
+      } else {
+        const { data } = await supabase.auth.signInAnonymously();
+        session = data.session;
+      }
       const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       if (session?.access_token) authHeaders['Authorization'] = `Bearer ${session.access_token}`;
 

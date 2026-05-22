@@ -138,12 +138,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Hydrate on mount in case SSR skipped the initializer
-  useEffect(() => {
-    const saved = storage.get<UserSettings>(SETTINGS_KEY);
-    if (saved) setSettings(prev => ({ ...prev, ...saved }));
-  }, []);
-
   return (
     <SettingsContext.Provider value={{ settings, updateSettings }}>
       {children}

@@ -8,6 +8,8 @@ const STORAGE_KEY = 'wl-planned';
 
 interface FoliosCtx {
   planned: Folio[];
+  /** true while the initial Supabase/localStorage load is in flight */
+  loading: boolean;
   addFolio: (folio: Folio) => string;
   deleteFolio: (id: string) => void;
   updateFolio: (id: string, updated: Folio) => void;
@@ -15,6 +17,7 @@ interface FoliosCtx {
 
 export const FoliosContext = createContext<FoliosCtx>({
   planned: [],
+  loading: true,
   addFolio: () => '',
   deleteFolio: () => {},
   updateFolio: () => {},
@@ -35,6 +38,8 @@ export function FoliosProvider({ children }: { children: React.ReactNode }) {
     }
     return [];
   });
+  // Stays true until the first auth check + load cycle completes
+  const [loading, setLoading] = useState(true);
 
   const userIdRef = useRef<string | null>(null);
 
@@ -84,6 +89,7 @@ export function FoliosProvider({ children }: { children: React.ReactNode }) {
         const folios = saved && Array.isArray(saved) ? saved : [];
         injectIntoFoliosMap(folios);
         setPlanned(folios);
+        if (mounted) setLoading(false);
         return;
       }
 
@@ -104,6 +110,7 @@ export function FoliosProvider({ children }: { children: React.ReactNode }) {
         setPlanned(remoteFolios);
         storage.set(STORAGE_KEY, remoteFolios);
       }
+      if (mounted) setLoading(false);
     }
 
     supabase.auth.getSession().then(({ data }) => {
@@ -116,6 +123,7 @@ export function FoliosProvider({ children }: { children: React.ReactNode }) {
         storage.remove(STORAGE_KEY);
         userIdRef.current = null;
         setPlanned([]);
+        setLoading(false);
       } else {
         const user = session?.user;
         handleUser(user?.id ?? null, !user?.email);
@@ -163,7 +171,7 @@ export function FoliosProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <FoliosContext.Provider value={{ planned, addFolio, deleteFolio, updateFolio }}>
+    <FoliosContext.Provider value={{ planned, loading, addFolio, deleteFolio, updateFolio }}>
       {children}
     </FoliosContext.Provider>
   );

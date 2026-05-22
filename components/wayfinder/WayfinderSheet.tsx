@@ -248,10 +248,13 @@ export function WayfinderSheet({
   theme: T, open, onClose, seedQuestion, folioId, composeMode,
   editMode = false, wishlistMode = false, onUpdate,
 }: Props) {
-  const { addFolio } = useFolios();
+  const { addFolio, planned } = useFolios();
   const { addItem: addWishlistItem } = useWishlist();
   const { settings } = useSettings();
-  const folio = folioId ? (FOLIOS[folioId] ?? null) : null;
+  // Check planned array first so user-created folios work after a page refresh
+  const folio = folioId
+    ? (planned.find(f => f.id === folioId) ?? FOLIOS[folioId] ?? null)
+    : null;
 
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     seedMessages(folioId, composeMode, editMode, folio)
