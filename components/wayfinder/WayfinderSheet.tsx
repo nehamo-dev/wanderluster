@@ -27,10 +27,15 @@ async function friendlyError(res: Response): Promise<string> {
   return `Something went wrong (${res.status}). Please try again.`;
 }
 
-/** Returns Authorization header if a session is active; graceful no-op if not. */
+/** Returns Authorization header, creating an anonymous session if none exists. */
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    let { data: { session } } = await supabase.auth.getSession();
+    // No session (e.g. demo fallback before anonymous auth was enabled) — create one now
+    if (!session) {
+      const { data } = await supabase.auth.signInAnonymously();
+      session = data.session;
+    }
     if (session?.access_token) {
       return {
         'Content-Type': 'application/json',
