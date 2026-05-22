@@ -16,6 +16,17 @@ import { extractAndParseFolio, correctDates } from '../../lib/parseCompose';
 import { fetchWikiPhoto } from '../../constants/photos';
 import { supabase } from '../../lib/supabase';
 
+/** Converts a failed API response into a user-friendly error string. */
+async function friendlyError(res: Response): Promise<string> {
+  if (res.status === 401) return 'Your session has expired. Please sign in again to use Wayfinder.';
+  if (res.status === 429) return 'You\'ve sent a lot of requests — give it a minute and try again.';
+  try {
+    const d = await res.json();
+    if (d.error) return d.error;
+  } catch {}
+  return `Something went wrong (${res.status}). Please try again.`;
+}
+
 /** Returns Authorization header if a session is active; graceful no-op if not. */
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
@@ -304,8 +315,7 @@ export function WayfinderSheet({
         });
 
         if (!res.ok) {
-          let errMsg = `API returned ${res.status}`;
-          try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+          const errMsg = await friendlyError(res);
           setThinking(false);
           setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: errMsg }]);
           return;
@@ -463,7 +473,7 @@ export function WayfinderSheet({
         body: JSON.stringify({ messages: history, folio, userContext }),
       });
 
-      if (!response.ok || !response.body) throw new Error('api error');
+      if (!response.ok || !response.body) throw new Error(await friendlyError(response));
 
       const replyId = `w-${Date.now()}`;
       setMessages(prev => [...prev, { id: replyId, role: 'wayfinder', text: '' }]);
@@ -556,12 +566,12 @@ export function WayfinderSheet({
           setTimeout(() => autoCompose(conversationBrief), 400);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[sendChat]', err);
       setThinking(false);
       setMessages(prev => [...prev, {
         id: `w-${Date.now()}`, role: 'wayfinder',
-        text: 'Connection lost. Try again in a moment.',
+        text: err?.message ?? 'Connection lost. Try again in a moment.',
       }]);
     }
   }
@@ -579,9 +589,7 @@ export function WayfinderSheet({
         body: JSON.stringify({ mode: 'words', input: brief }),
       });
       if (!res.ok) {
-        let errMsg = `API returned ${res.status}`;
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
-        throw new Error(errMsg);
+        throw new Error(await friendlyError(res));
       }
 
       let rawText = '';
@@ -651,9 +659,7 @@ export function WayfinderSheet({
         body: JSON.stringify({ mode: 'words', input: brief }),
       });
       if (!res.ok) {
-        let errMsg = `API returned ${res.status}`;
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
-        throw new Error(errMsg);
+        throw new Error(await friendlyError(res));
       }
 
       let rawText = '';

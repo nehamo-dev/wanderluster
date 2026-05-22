@@ -2,9 +2,16 @@
 
 Run every item before pushing. Add new cases whenever a bug is reported.
 
+**P0** = must pass before every deploy — core functionality and security  
+**P1** = run before major releases or when relevant areas change — photos, edge cases, polish
+
 ---
 
-## 1. Build
+## P0 — Critical (run before every deploy)
+
+---
+
+### 1. Build
 
 - [ ] `npm run build` exits 0 with no errors or warnings
 - [ ] `dist/` contains `index.html`, `_expo/`, `assets/`
@@ -12,9 +19,121 @@ Run every item before pushing. Add new cases whenever a bug is reported.
 
 ---
 
-## 2. Destination photos
+### 3. Login page
 
-Regression: images go gray when Unsplash IDs expire, Wikimedia width mismatches, or wrong URL format.
+Regression: demo button disappeared when `__DEV__` gating was used.
+
+- [ ] "Continue with email" card is visible
+- [ ] "Try the demo" card is visible with "No account needed" subtitle
+- [ ] Tapping "Try the demo" navigates to `/(app)` home screen
+- [ ] Magic link field appears when "Continue with email" is tapped
+
+---
+
+### 4. Home screen
+
+- [ ] "YOUR PLANS" section shows AddTile ("A Blank Folio · Throw it at me")
+- [ ] "ON YOUR WISHLIST" section shows wishlist tiles (Patagonia, Kyoto, Rome, Marrakech at minimum)
+- [ ] "INSPIRATION" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
+- [ ] Tapping a folio tile navigates to the trip detail screen
+- [ ] Home screen greeting is time-appropriate ("Good morning/afternoon/evening/night")
+- [ ] Greeting uses first name if set; "Maya" for demo; "Traveler" for auth-no-name
+
+---
+
+### 5. Wayfinder — create modal & new trip flow
+
+Regression: Wayfinder chatted indefinitely without creating a folio; model ignored [COMPOSE:] trigger.  
+Fix: client now auto-composes after 2nd user message in no-folio chat mode (model output no longer required).
+
+- [ ] Tapping the Wayfinder dock opens the modal
+- [ ] Typing in the textarea and tapping → sends the message and transitions to chat view
+- [ ] After 2nd user message in chat → "Building your folio now…" appears automatically
+- [ ] Folio is created and app navigates to the trip detail screen automatically
+- [ ] `[COMPOSE: ...]` and `[EDIT: ...]` tags are NOT visible in the chat
+
+---
+
+### 6. Wayfinder — API connectivity
+
+- [ ] On Vercel: Wayfinder chat responds (not "Connection lost")
+- [ ] On Vercel: Creating a new trip via conversation produces a folio
+- [ ] Error messages show actual error text (not silent or generic)
+
+---
+
+### 8. Trip detail — user-created folios
+
+- [ ] Day cards render with correct date and day-of-week
+- [ ] Day tabs (DAY 1 · DAY 2 …) scroll the page to the corresponding card when tapped
+- [ ] Suggested events show "Suggested" badge + "+" confirm and "×" remove buttons
+- [ ] Confirmed events do NOT show "+" action button
+- [ ] Map address link opens Google Maps in a new browser tab (not blocked by popup blocker)
+- [ ] Wayfinder opens from within the trip screen and receives folio context
+
+---
+
+### 8b. Trip detail — inspiration folios (read-only)
+
+Regression: inspiration folios showed action buttons that mutated local state.
+
+- [ ] "INSPIRATION" badge shown (not "Folio · Draft")
+- [ ] NO "+ Add to this day", NO "+" / "×" action buttons on any events
+- [ ] "Plan this trip →" button visible and opens Wayfinder pre-filled
+
+---
+
+### 8c. Wishlist add flow
+
+- [ ] Tapping "ADD DESTINATION / Somewhere new" opens Wayfinder in wishlist mode
+- [ ] Typing a destination and tapping → calls `/api/wishlist`
+- [ ] Wayfinder shows "[destination] added to your wishlist ✦" confirmation
+- [ ] New wishlist tile appears on home screen
+
+---
+
+### 13. Supabase storage — core flows
+
+- [ ] **Demo mode**: create a folio via Wayfinder → appears in "YOUR PLANS"
+- [ ] **Demo mode**: refresh page → folio still present (localStorage)
+- [ ] **Authenticated mode**: log in → home screen loads folios from Supabase
+- [ ] **Sign out → sign back in**: folios/wishlist reload from Supabase correctly
+
+---
+
+### 14. Auth & security
+
+- [ ] All AI routes return `401` without a valid `Authorization` header:
+  ```
+  curl -X POST https://<your-vercel-url>/api/wayfinder \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"hi"}],"folio":null}'
+  ```
+  (repeat for `/api/compose`, `/api/wishlist`, `/api/suggest`, `/api/feedback`)
+- [ ] Demo users (anonymous sign-in) can still use Wayfinder — their JWT is accepted
+- [ ] Security headers present on Vercel responses: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`
+
+---
+
+### 16. Sign-out data isolation
+
+Regression: name and trips persisted after sign-out.
+
+- [ ] Sign out → "Try the demo" → greeting says "Good [time], Maya." (NOT previous user's name)
+- [ ] Demo mode Settings → "Your name" shows placeholder (not previous user's name)
+- [ ] Demo mode home → NO previous user's folios or wishlist items visible
+
+---
+
+---
+
+## P1 — Extended (run before major releases or when relevant areas change)
+
+---
+
+### 2. Destination photos
+
+Regression: images go gray when Wikimedia URLs change or width mismatches.
 
 - [ ] Verify each hardcoded URL returns HTTP 200:
   ```
@@ -31,257 +150,112 @@ Regression: images go gray when Unsplash IDs expire, Wikimedia width mismatches,
 
 ---
 
-## 3. Login page
-
-Regression: demo button disappeared when `__DEV__` gating was used.
-
-- [ ] "Continue with email" card is visible
-- [ ] "Try the demo" card is visible with "No account needed" subtitle
-- [ ] Tapping "Try the demo" navigates to `/(app)` home screen
-- [ ] Magic link field appears when "Continue with email" is tapped
-
----
-
-## 4. Home screen
-
-- [ ] "YOUR PLANS" section shows AddTile ("A Blank Folio · Throw it at me")
-- [ ] "ON YOUR WISHLIST" section shows wishlist tiles (Patagonia, Kyoto, Rome, Marrakech at minimum)
-- [ ] "ADD DESTINATION / Somewhere new" tile appears at end of wishlist row
-- [ ] "INSPIRATION" section shows 3 tiles (Tokyo, Salzburg, Yosemite)
-- [ ] "PAST TRIPS" section shows 3 tiles (Rome, Kyoto, Lisbon) with past dates
-- [ ] Tapping a folio tile navigates to the trip detail screen
-- [ ] Wayfinder dock (bottom) cycles through **generic** travel prompts (not folio-specific)
-
----
-
-## 5. Wayfinder — create modal & new trip flow
-
-Regression: Wayfinder chatted indefinitely without creating a folio; model ignored [COMPOSE:] trigger.
-Fix: client now auto-composes after 2nd user message in no-folio chat mode (model output no longer required).
-
-- [ ] Tapping the Wayfinder dock opens a centered modal (not a bottom sheet)
-- [ ] Modal has warm off-white (#F7F5F0) background, 20px border-radius, dark scrim behind it
-- [ ] Header: compass avatar (dark circle) + "Wayfinder" / "Your AI travel concierge" + × close button
-- [ ] Thin divider separates header from body
-- [ ] Body shows "Where do you want to go?" heading + subtext
-- [ ] Textarea is visible with placeholder text ("Paris in spring, maybe…")
-- [ ] 3-button row: "Upload file" | "Paste link" | → send arrow — all equal height, 10px radius
-- [ ] Footer shows lock icon + "Your uploads are only used to plan your trip."
-- [ ] Tapping × or the scrim closes the modal
-- [ ] Typing in the textarea and tapping → sends the message and transitions to chat view
-- [ ] Tapping "Upload file" opens file picker (uses `meta-llama/llama-4-scout-17b-16e-instruct` vision model)
-- [ ] Tapping "Paste link" pre-fills input with "https://" and focuses textarea
-- [ ] After 2nd user message in chat → "Building your folio now…" appears automatically
-- [ ] Folio is created and app navigates to the trip detail screen automatically
-- [ ] `[COMPOSE: ...]` tag is NOT visible in the chat — stripped from display if model outputs it
-
----
-
-## 6. Wayfinder — API connectivity
-
-Regression: "Connection lost" on both localhost and Vercel due to routing issues and silent catch blocks.
-
-- [ ] On dev server (`npm run web`): curl test passes:
-  ```
-  curl -X POST http://localhost:8082/api/wayfinder \
-    -H "Content-Type: application/json" \
-    -d '{"messages":[{"role":"user","content":"Hello"}],"folio":null}'
-  ```
-- [ ] On dev server: curl test for compose passes:
-  ```
-  curl -X POST http://localhost:8082/api/compose \
-    -H "Content-Type: application/json" \
-    -d '{"mode":"words","input":"5 days in Tokyo"}'
-  ```
-- [ ] On Vercel: Wayfinder chat responds (not "Connection lost")
-- [ ] On Vercel: Creating a new trip via conversation produces a folio
-- [ ] Error messages show actual error text (not silent or generic "Something went wrong")
-
----
-
-## 7. Compose / JSON robustness
-
-Regression: AI returns malformed JSON (unescaped newlines/quotes, trailing commas) causing parse failure.
+### 7. Compose / JSON robustness
 
 - [ ] Multi-day trip (7+ days) composes without JSON parse error
-- [ ] Sanitizer handles unescaped newlines in string values
-- [ ] Sanitizer handles trailing commas before `]` or `}`
+- [ ] Sanitizer handles unescaped newlines and trailing commas in AI output
 - [ ] `max_tokens` is 8000 in both `api/compose.ts` and `app/api/compose+api.ts`
-- [ ] Both compose endpoints stream the response (`stream: true` in Groq call, `Content-Type: text/plain` in response)
 
 ---
 
-## 8. Trip detail — user-created folios
+### 8-detail. Trip detail — full polish
 
-- [ ] Hero image shows for known destinations (Tokyo, Salzburg, Yosemite)
-- [ ] Day cards render with correct date and day-of-week
-- [ ] All day cards are **always expanded** — there is no collapse toggle
-- [ ] Day tabs (DAY 1 · DAY 2 …) scroll the page to the corresponding card when tapped
-- [ ] Each day card has a dashed "+ Add to this day" row at the bottom
+- [ ] All day cards are **always expanded** — no collapse toggle
 - [ ] Tapping "+ Add to this day" opens Wayfinder pre-filled with day context
-- [ ] Suggested events show "Suggested" badge + "+" confirm and "×" remove action buttons
-- [ ] Confirmed events do NOT show "+" action button
-- [ ] Confirmed events show a "×" that reveals a reason chooser (Incorrect data / Change of plan)
-- [ ] Tapping an event row with tips/rating/location expands to show details (∨ chevron visible)
-- [ ] Map address link opens Google Maps in a **new browser tab** (not same tab, not blocked by popup blocker)
-- [ ] Map link text includes full address with city (not just bare venue name)
-- [ ] Wayfinder opens from within the trip screen and receives folio context
+- [ ] Confirmed events show a "×" that reveals reason chooser (Incorrect data / Change of plan)
+- [ ] Event details (tips/rating/location) always visible when present
+- [ ] Map link text includes full address with city (not just venue name)
 
 ---
 
-## 8b. Trip detail — inspiration folios (read-only)
+### 9. Vercel deployment config
 
-Regression: inspiration folios showed action buttons that mutated local state.
-
-- [ ] "INSPIRATION" badge shown in top-right (not "Folio · Draft")
-- [ ] No ⋯ menu button visible
-- [ ] "Plan this trip →" button visible on hero
-- [ ] Day cards visible and always expanded (same visual as user folios)
-- [ ] NO "+ Add to this day" button on any day card
-- [ ] NO "+" / "×" action buttons on any events (suggested or confirmed)
-- [ ] NO "Ask Wayfinder for ideas" button on empty days ("A blank day. Often the best ones." text still shows)
-- [ ] Badge counts: "2 CONFIRMED" on Day 1 Tokyo (confirmed && !suggested), not overcounting
-- [ ] Tapping "Plan this trip" opens Wayfinder with destination + trip details pre-filled
-
----
-
-## 8c. Wishlist add flow
-
-Regression: WishlistItem.flight required; wishlistMode missing from useEffect deps causing stale messages.
-
-- [ ] Tapping "ADD DESTINATION / Somewhere new" tile opens Wayfinder in wishlist mode
-- [ ] Wayfinder header shows "Add to wishlist" subtitle (not "Your AI travel concierge")
-- [ ] Body shows "Where do you dream of going?" heading
-- [ ] Typing a destination and tapping → calls `/api/wishlist` (non-streaming JSON)
-- [ ] Wayfinder shows "[destination] added to your wishlist ✦" confirmation message
-- [ ] Sheet auto-closes after ~1.4 seconds
-- [ ] New wishlist tile appears at front of wishlist row with correct name, season, and vibe tags
-- [ ] Re-opening wishlist Wayfinder shows a clean blank state (no stale messages from previous session)
-
----
-
-## 9. Vercel deployment
-
-Regression: catch-all rewrite intercepted `/api/*` routes; negative-lookahead regex unreliable.
-
-- [ ] `vercel.json` has explicit pass-through rewrites for `/api/compose`, `/api/wayfinder`, `/api/suggest`, `/api/feedback` BEFORE the `/(.*) → /index.html` catch-all
+- [ ] `vercel.json` has explicit pass-through rewrites for all `/api/*` routes before the catch-all
 - [ ] Edge functions handle `OPTIONS` with `204 No Content` (CORS preflight)
-- [ ] `GROQ_API_KEY` is set in Vercel Environment Variables
-- [ ] `EXPO_PUBLIC_SUPABASE_URL` is set in Vercel Environment Variables
-- [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY` is set in Vercel Environment Variables
+- [ ] All required env vars set: `GROQ_API_KEY`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - [ ] `lib/supabase.web.ts` uses `|| 'https://placeholder.supabase.co'` fallback (not `!` assertion)
 
 ---
 
-## 10. Wayfinder — in-trip contextual mode
+### 10. Wayfinder — in-trip contextual mode
 
-- [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the header subtitle
-- [ ] Header subtitle shows "Editing your folio" when editMode is true
-- [ ] Asking a question gets a conversational reply — no trip update triggered, no `[EDIT:]` in reply
+- [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the subtitle
+- [ ] Asking a question gets a conversational reply — no trip update triggered
 - [ ] Asking to add something triggers "Updating your [destination] trip…" then rebuilds the trip
-- [ ] `[EDIT: ...]` tag is never visible in the chat UI — stripped from the displayed reply
-- [ ] `[COMPOSE:]` tag is never visible in the chat UI — stripped from the displayed reply
 
 ---
 
-## 11. Flight routing & smart transport
+### 11. Flight routing & smart transport
 
-- [ ] Long-haul route (e.g. Seattle → Tokyo) generates `routeType: "direct"` with `routeNote` like "Direct · ~10h"
-- [ ] No-direct route (e.g. Seattle → Dubrovnik) generates `routeType: "connecting"` naming the hub
-- [ ] Short-haul within ~400km (e.g. Paris → Amsterdam) generates `kind: "transport"` (train/drive), NOT a flight
-- [ ] Suggested flight events show "Verify before booking" label in trip detail view
-- [ ] Confirmed flight events do NOT show "Verify before booking"
+- [ ] Long-haul route generates `routeType: "direct"` with `routeNote` like "Direct · ~10h"
+- [ ] No-direct route generates `routeType: "connecting"` naming the hub
+- [ ] Short-haul within ~400km generates `kind: "transport"` (train/drive), NOT a flight
 - [ ] No invented IATA codes in generated flight events
-- [ ] No flight event connection time shorter than 1h30 domestic / 2h international
+- [ ] No flight connection time shorter than 1h30 domestic / 2h international
 
 ---
 
-## 12. Inspiration & Wishlist → Real Trip Conversion
+### 13b. Supabase storage — full regression
 
-- [ ] Tapping an Inspiration tile navigates to the trip detail screen
-- [ ] Trip detail for inspiration folio shows "Inspiration" badge (not "Folio · Draft")
-- [ ] "Plan this trip" button visible on hero of inspiration folio
-- [ ] Tapping "Plan this trip" opens Wayfinder with destination + duration pre-filled
-- [ ] After creating a trip, the new folio appears in "Your Plans" on home screen
-
----
-
-## 13. Supabase storage
-
-Regression: data not persisting across sessions for authenticated users; demo mode broken by Supabase errors.
-
-- [ ] **Demo mode**: tap "Try the demo" → home screen loads with mock wishlist and no folios
-- [ ] **Demo mode**: create a folio via Wayfinder → appears in "YOUR PLANS" on home screen
-- [ ] **Demo mode**: refresh page → folio still present (persisted in localStorage)
-- [ ] **Authenticated mode**: log in via magic link → home screen loads folios from Supabase
-- [ ] **First login**: if localStorage had a folio before login, it migrates to Supabase (appears after reload)
-- [ ] **Authenticated mode**: create a folio → verify row appears in Supabase `folios` table
-- [ ] **Authenticated mode**: add a wishlist item → verify row appears in `wishlist_items` table
-- [ ] **Authenticated mode**: update settings → verify row upserted in `user_settings` table
-- [ ] **Sign out → sign back in**: folios/wishlist are reloaded from Supabase correctly
+- [ ] **First login**: localStorage folio migrates to Supabase (appears after reload)
+- [ ] **Authenticated mode**: create folio → row appears in Supabase `folios` table
+- [ ] **Authenticated mode**: add wishlist item → row appears in `wishlist_items` table
+- [ ] **Authenticated mode**: update settings → row upserted in `user_settings` table
 - [ ] RLS check: `curl` with anon key returns `[]` for all 3 tables (no data leakage between users)
 
 ---
 
-## 14. Auth & security
+### 14b. Auth & security — extended
 
-- [ ] All AI API routes (`/api/compose`, `/api/wayfinder`, `/api/wishlist`, `/api/suggest`, `/api/feedback`) return `401` if the `Authorization` header is missing
-- [ ] Demo users (anonymous sign-in) can still use Wayfinder — their Supabase JWT is accepted
 - [ ] Rate limit: hitting `/api/compose` 11× in 10 min returns `429 Too Many Requests`
-- [ ] Magic link login: entering an email and submitting sends a link (Supabase dashboard confirms request)
-- [ ] Cloudflare Turnstile widget appears inline after tapping "Continue with email" — not on the splash/idle state
-- [ ] "Send magic link" button stays disabled until the Turnstile token is ready (shows "Verifying…")
-- [ ] Pressing Enter in the email field does NOT submit while Turnstile is still verifying
-- [ ] Security headers present on Vercel responses: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`
-- [ ] `googleAccessToken` is NOT written to `wl-settings` in localStorage (open DevTools → Application → Local Storage to verify)
+- [ ] Magic link login: entering email sends a link (Supabase dashboard confirms)
+- [ ] Turnstile widget appears inline after tapping "Continue with email"
+- [ ] "Send magic link" button stays disabled until Turnstile token is ready
+- [ ] `googleAccessToken` is NOT written to `wl-settings` in localStorage
 
 ---
 
-## 15. Settings — profile & account
+### 15. Settings — profile & account
 
-- [ ] Settings page shows correct email address for signed-in user
-- [ ] Tapping "Your name" row makes a text input appear inline (no modal/sheet)
-- [ ] Saving a name shows the ✓ Saved toast
-- [ ] Tapping "Home city" row expands an inline search field with live autocomplete
-- [ ] Selecting a city result fills the input and hides the suggestions list
-- [ ] Saving home city shows the ✓ Saved toast and collapses the section
-- [ ] Cancelling home city edit leaves the previous value unchanged
+- [ ] Settings shows correct email for signed-in user
+- [ ] Tapping "Your name" expands inline input (no modal)
+- [ ] Saving name shows ✓ Saved toast
+- [ ] Tapping "Home city" expands inline search with live autocomplete
 - [ ] Tapping "Travel preferences" expands inline chip selector + note input
-- [ ] Selecting a chip adds it as an active tag above the note field
-- [ ] Saving prefs shows ✓ Saved toast and collapses section
-- [ ] "Connect" buttons for Google Calendar and Gmail are **outlined** (ghost style, not solid black)
-- [ ] Avatar circle shows a tappable ✎ badge when signed in; clicking opens a file picker
-- [ ] Uploading a photo updates the avatar and shows ✓ Saved toast
-- [ ] "Sign out" is displayed in **muted gray** (not red)
+- [ ] "Connect" buttons for Google Calendar / Gmail are **outlined** (ghost style, not solid black)
+- [ ] "Sign out" displayed in **muted gray** (not red)
 - [ ] Tapping "Sign out" navigates to `/login`
 
 ---
 
-## 16. Settings — sign out data isolation (regression: name persisted after sign out)
+### 17. Home screen — greeting & avatar detail
 
-- [ ] Sign in as User A, set a name (e.g. "Nemo") → name appears in home screen greeting and Settings
-- [ ] Sign out → immediately lands on login screen
-- [ ] Choose "Try the demo" (unauthenticated) → home screen greeting says "Good [time], Traveler." (NOT "Nemo")
-- [ ] Open Settings in demo mode → "Your name" row shows placeholder "Add your name" (not User A's name)
-- [ ] Open DevTools → Application → Local Storage → `wl-settings` should be absent or contain an empty name after sign-out
-
----
-
-## 17. Home screen — dynamic greeting & avatar
-
-- [ ] Between 05:00–11:59 the greeting reads "Good morning, [name]."
-- [ ] Between 12:00–16:59 the greeting reads "Good afternoon, [name]."
-- [ ] Between 17:00–20:59 the greeting reads "Good evening, [name]."
-- [ ] Before 05:00 or after 21:00 the greeting reads "Good night, [name]."
-- [ ] When no name is set, greeting reads "Good [time], Traveler."
-- [ ] When name is "Neha Monga", greeting reads "Good [time], Neha." (first name only)
-- [ ] Top-right avatar shows the first letter of the user's name (e.g. "N" for Neha)
-- [ ] When no name is set, top-right avatar shows "✦" glyph
-- [ ] After setting a name in Settings, returning to Home updates the greeting and avatar without reload
+- [ ] 05:00–11:59 → "Good morning", 12:00–16:59 → "Good afternoon", 17:00–20:59 → "Good evening", before 05:00 / after 21:00 → "Good night"
+- [ ] Full name "Neha Monga" → greeting uses "Neha" (first name only)
+- [ ] Top-right avatar shows first letter of name; "✦" when no name set
+- [ ] Updating name in Settings reflects on Home immediately (no reload)
 
 ---
 
-## 18. Reported bugs tracker
+### 5b. Wayfinder — compose modes (P1)
+
+- [ ] Tapping "Upload file" opens file picker (uses `meta-llama/llama-4-scout-17b-16e-instruct` vision model)
+- [ ] Tapping "Paste link" pre-fills input with "https://" and focuses textarea
+- [ ] Wayfinder dock cycles through **generic** travel prompts (not folio-specific)
+
+---
+
+### 12. Inspiration & Wishlist → Real Trip Conversion
+
+- [ ] "Plan this trip" button visible on inspiration folio hero
+- [ ] Tapping "Plan this trip" opens Wayfinder with destination + duration pre-filled
+- [ ] After creating a trip, new folio appears in "Your Plans" on home screen
+
+---
+
+---
+
+## Bug tracker
 
 | # | Bug | Section |
 |---|-----|---------|
@@ -308,4 +282,5 @@ Regression: data not persisting across sessions for authenticated users; demo mo
 | 21 | Wishlist stale messages bled between sessions (`wishlistMode` missing from dep array) | § 8c |
 | 22 | Map address link not opening (Linking.openURL async; blocked by popup blocker on web) | § 8 |
 | 23 | Settings name/city persisted after sign-out (localStorage not cleared on SIGNED_OUT event) | § 16 |
-| 24 | Signed-in user's trips + wishlist visible in demo mode after sign-out (same root cause: SIGNED_OUT not handled in folios/wishlist contexts) | § 16 |
+| 24 | Signed-in user's trips + wishlist visible in demo mode after sign-out (SIGNED_OUT not handled in folios/wishlist contexts) | § 16 |
+| 25 | Home screen showed previous auth user's name in demo mode — `settings.name` read without `isAnonymous` guard | § 16, § 17 |

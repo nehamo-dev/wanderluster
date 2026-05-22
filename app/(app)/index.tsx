@@ -16,6 +16,7 @@ import { useFolios } from '../../lib/folios-context';
 import { useWishlist } from '../../lib/wishlist-context';
 import { useSettings } from '../../lib/settings-context';
 import { supabase } from '../../lib/supabase';
+import type { Folio } from '../../types';
 
 function SmallCaps({ children, style }: { children: string; style?: object }) {
   return (
@@ -30,6 +31,21 @@ function getTimeGreeting(): string {
   if (h < 17) return 'Good afternoon';
   if (h < 21) return 'Good evening';
   return 'Good night';
+}
+
+/** Parse a folio's start date for sorting. Uses days[0].date ("Mon · Mar 25") first,
+ *  falls back to the human-readable dates string ("Mar 25 – Apr 5"). */
+function parseFolioStartDate(folio: Folio): number {
+  const raw =
+    folio.days?.[0]?.date?.split(' · ').pop() ??   // "Mar 25" from "Mon · Mar 25"
+    folio.dates?.split(/[–—]/)[0]?.trim();          // "Mar 25" from "Mar 25 – Apr 5"
+  if (!raw) return Infinity;
+  const now = new Date();
+  for (const year of [now.getFullYear(), now.getFullYear() + 1]) {
+    const d = new Date(`${raw} ${year}`);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return Infinity;
 }
 
 export default function HomeScreen() {
@@ -54,8 +70,11 @@ export default function HomeScreen() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const firstName = settings.name ? settings.name.trim().split(' ')[0] : '';
-  // Demo → "Maya"/"M". Authenticated with no name → email initial / "Traveler".
+  // Soonest trip first
+  const sortedPlanned = [...planned].sort((a, b) => parseFolioStartDate(a) - parseFolioStartDate(b));
+
+  // In demo mode, always show "Maya"/"M" — ignore any stale settings.name from a previous auth session.
+  const firstName = (!isAnonymous && settings.name) ? settings.name.trim().split(' ')[0] : '';
   const emailInitial = userEmail ? userEmail[0].toUpperCase() : null;
   const displayName = firstName || (isAnonymous ? 'Maya' : 'Traveler');
   const avatarInitial = firstName ? firstName[0].toUpperCase() : (isAnonymous ? 'M' : (emailInitial ?? '✦'));
@@ -106,7 +125,7 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hScroll}
           >
-            {planned.map(folio => (
+            {sortedPlanned.map(folio => (
               <FolioTile
                 key={folio.id}
                 folio={folio}
