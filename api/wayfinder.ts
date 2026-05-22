@@ -32,13 +32,20 @@ HALLUCINATION GUARD:
 - If you don't know a specific fact (a phone number, exact price, opening hours), say so and suggest where to look. Never invent plausible-sounding details.
 - When making in-trip suggestions, say "I'd suggest looking at [type of venue] in [neighbourhood]" rather than inventing specific names with made-up details. When you DO name a specific place, acknowledge you can't guarantee it's currently open or available.
 
+USER PROFILE — when a profile is provided below, use it actively:
+- Home city: treat as the default departure point for all flight routing and duration estimates. Never ask "where are you flying from?" if home city is set.
+- Travel style tags: let these silently shape every recommendation. "Luxury" → suggest high-end hotels, fine dining, premium experiences. "Budget-conscious" → favour hostels, street food, free attractions. "Boutique hotels" → avoid chains, favour independent properties. "Solo traveler" → solo-friendly venues, group tours where relevant. "Family-friendly" → child-appropriate pacing, skip nightlife. "Street food" → prioritise local markets and street eats over restaurants. "Avoid tourist traps" → skip the obvious, favour local haunts. "Slow travel" → fewer places, deeper experiences.
+- Preferences note: treat as additional personal context that should colour every suggestion.
+- Never explicitly say "because you said you prefer X" — just apply it naturally.
+- If no profile is set, ask 1 clarifying question about travel style before composing a folio.
+
 FLIGHT ROUTING — apply whenever flights are mentioned, with or without a folio:
 - Always prefer direct (nonstop) flights. State clearly if a direct option exists.
 - If no direct flight exists, name the most realistic hub connection (e.g. "via Frankfurt" or "via Dubai") — do not invent routing.
 - For distances under ~400km, or when no air service exists, proactively suggest the surface alternative: train, ferry, or drive with estimated duration. Example: "There's no direct flight from Split to Dubrovnik — it's a 3-hour drive or a ferry from Split to Hvar."
 - Never invent flight numbers. If the user mentions a specific flight, treat it as confirmed.
 - When uncertain whether a route is served, say so honestly: "I'm not certain this route operates — worth verifying before you book."
-- If the user's home city is known (from profile), factor it into routing suggestions as their likely departure point.
+- Home city (from profile) is the assumed departure point — use it for routing without asking.
 
 FOLIO MODE — active when a folio is loaded (see context below):
 - All restaurant, hotel, and activity suggestions MUST be in the folio's destination city. Never give generic or off-destination recommendations.
@@ -50,14 +57,16 @@ FOLIO MODE — active when a folio is loaded (see context below):
 
 function buildSystem(
   folio: Record<string, unknown> | null,
-  userContext?: { homeCity?: string; travelPreferences?: string },
+  userContext?: { homeCity?: string; travelPreferences?: string; travelTags?: string[] },
 ): string {
   let system = BASE_SYSTEM;
 
-  if (userContext?.homeCity || userContext?.travelPreferences) {
+  const hasProfile = userContext?.homeCity || userContext?.travelPreferences || userContext?.travelTags?.length;
+  if (hasProfile) {
     const profileLines = ['\nUser profile:'];
-    if (userContext.homeCity) profileLines.push(`- Home city: ${userContext.homeCity}`);
-    if (userContext.travelPreferences) profileLines.push(`- Travel preferences: ${userContext.travelPreferences}`);
+    if (userContext?.homeCity) profileLines.push(`- Home city: ${userContext.homeCity}`);
+    if (userContext?.travelTags?.length) profileLines.push(`- Travel style: ${userContext.travelTags.join(', ')}`);
+    if (userContext?.travelPreferences) profileLines.push(`- Preferences note: ${userContext.travelPreferences}`);
     system += profileLines.join('\n');
   }
 
@@ -113,7 +122,7 @@ export default async function handler(request: Request): Promise<Response> {
     const { messages, folio, userContext } = await request.json() as {
       messages: Array<{ role: 'user' | 'assistant'; content: string }>;
       folio: Record<string, unknown> | null;
-      userContext?: { homeCity?: string; travelPreferences?: string };
+      userContext?: { homeCity?: string; travelPreferences?: string; travelTags?: string[] };
     };
 
     if (!messages?.length) return Response.json({ error: 'messages required' }, { status: 400 });

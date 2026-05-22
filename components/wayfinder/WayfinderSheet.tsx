@@ -460,10 +460,11 @@ export function WayfinderSheet({
           content: m.text!,
         }));
 
-      const userContext = (settings.homeCity || settings.travelPreferences)
+      const userContext = (settings.homeCity || settings.travelPreferences || settings.travelTags?.length)
         ? {
             homeCity: settings.homeCity || undefined,
             travelPreferences: settings.travelPreferences || undefined,
+            travelTags: settings.travelTags?.length ? settings.travelTags : undefined,
           }
         : undefined;
 
