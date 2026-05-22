@@ -27,19 +27,62 @@ async function friendlyError(res: Response): Promise<string> {
   return `Something went wrong (${res.status}). Please try again.`;
 }
 
-/** Returns Authorization header, creating an anonymous session if none exists. */
+/**
+ * Returns auth headers with a valid (non-expired) Bearer token.
+ *
+ * supabase.auth.getSession() returns the locally-cached session even when the
+ * JWT has expired — autoRefreshToken only fires on a timer, not on demand.
+ * On a cold page load the token may be stale, so we check expires_at and
+ * proactively refresh when within 5 minutes of expiry or already expired.
+ * If there's no session at all we create an anonymous one.
+ */
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
     let { data: { session } } = await supabase.auth.getSession();
-    // No session (e.g. demo fallback before anonymous auth was enabled) — create one now
-    if (!session) {
+
+    if (session) {
+      const expiresAt = session.expires_at ?? 0;           // Unix seconds
+      const secsLeft  = expiresAt - Math.floor(Date.now() / 1000);
+      if (secsLeft < 300) {                                 // stale or < 5 min left
+        const { data } = await supabase.auth.refreshSession();
+        if (data.session) session = data.session;
+      }
+    } else {
+      // No session at all (demo fallback) — create an anonymous one
       const { data } = await supabase.auth.signInAnonymously();
       session = data.session;
     }
+
     if (session?.access_token) {
       return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
+      };
+    }
+  } catch {}
+  return { 'Content-Type': 'application/json' };
+}
+
+/**
+ * Re-authenticate (refresh or create anonymous session) and return fresh headers.
+ * Called after a 401 as a one-time recovery attempt.
+ */
+async function refreshAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    // Force a refresh regardless of expiry
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session?.access_token) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${refreshed.session.access_token}`,
+      };
+    }
+    // Refresh failed (no refresh token) — create a new anonymous session
+    const { data: anon } = await supabase.auth.signInAnonymously();
+    if (anon.session?.access_token) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anon.session.access_token}`,
       };
     }
   } catch {}
@@ -313,11 +356,19 @@ export function WayfinderSheet({
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
       try {
-        const res = await fetch('/api/wishlist', {
+        const wishlistBody = JSON.stringify({ destination: text });
+        let res = await fetch('/api/wishlist', {
           method: 'POST',
           headers: await getAuthHeaders(),
-          body: JSON.stringify({ destination: text }),
+          body: wishlistBody,
         });
+        if (res.status === 401) {
+          res = await fetch('/api/wishlist', {
+            method: 'POST',
+            headers: await refreshAuthHeaders(),
+            body: wishlistBody,
+          });
+        }
 
         if (!res.ok) {
           const errMsg = await friendlyError(res);
@@ -367,19 +418,27 @@ export function WayfinderSheet({
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
     try {
-      const res = await fetch('/api/compose', {
+      const composeBody = JSON.stringify({
+        mode: effectiveMode ?? 'words',
+        input: text,
+        imageData: capturedImage ?? undefined,
+      });
+      let res = await fetch('/api/compose', {
         method: 'POST',
         headers: await getAuthHeaders(),
-        body: JSON.stringify({
-          mode: effectiveMode ?? 'words',
-          input: text,
-          imageData: capturedImage ?? undefined,
-        }),
+        body: composeBody,
       });
+      // One-time retry on 401 — token may have been stale
+      if (res.status === 401) {
+        res = await fetch('/api/compose', {
+          method: 'POST',
+          headers: await refreshAuthHeaders(),
+          body: composeBody,
+        });
+      }
 
       if (!res.ok) {
-        let errMsg = `API returned ${res.status}`;
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        const errMsg = await friendlyError(res);
         console.error('[compose] error:', errMsg);
         setThinking(false);
         setMessages(prev => [...prev, { id: `w-${Date.now()}`, role: 'wayfinder', text: errMsg }]);
@@ -473,11 +532,20 @@ export function WayfinderSheet({
           }
         : undefined;
 
-      const response = await fetch('/api/wayfinder', {
+      const chatBody = JSON.stringify({ messages: history, folio, userContext });
+      let response = await fetch('/api/wayfinder', {
         method: 'POST',
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ messages: history, folio, userContext }),
+        body: chatBody,
       });
+      // One-time retry on 401 — token may have been stale
+      if (response.status === 401) {
+        response = await fetch('/api/wayfinder', {
+          method: 'POST',
+          headers: await refreshAuthHeaders(),
+          body: chatBody,
+        });
+      }
 
       if (!response.ok || !response.body) throw new Error(await friendlyError(response));
 
@@ -589,11 +657,19 @@ export function WayfinderSheet({
       text: 'Building your folio now…',
     }]);
     try {
-      const res = await fetch('/api/compose', {
+      const autoComposeBody = JSON.stringify({ mode: 'words', input: brief });
+      let res = await fetch('/api/compose', {
         method: 'POST',
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ mode: 'words', input: brief }),
+        body: autoComposeBody,
       });
+      if (res.status === 401) {
+        res = await fetch('/api/compose', {
+          method: 'POST',
+          headers: await refreshAuthHeaders(),
+          body: autoComposeBody,
+        });
+      }
       if (!res.ok) {
         throw new Error(await friendlyError(res));
       }
@@ -659,11 +735,19 @@ export function WayfinderSheet({
       text: recomposeMsg,
     }]);
     try {
-      const res = await fetch('/api/compose', {
+      const recomposeBody = JSON.stringify({ mode: 'words', input: brief });
+      let res = await fetch('/api/compose', {
         method: 'POST',
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ mode: 'words', input: brief }),
+        body: recomposeBody,
       });
+      if (res.status === 401) {
+        res = await fetch('/api/compose', {
+          method: 'POST',
+          headers: await refreshAuthHeaders(),
+          body: recomposeBody,
+        });
+      }
       if (!res.ok) {
         throw new Error(await friendlyError(res));
       }
