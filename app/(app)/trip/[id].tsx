@@ -14,6 +14,7 @@ import { DayCard } from '../../../components/trip/DayCard';
 import { useFolios } from '../../../lib/folios-context';
 import { useWayfinder } from '../../../lib/wayfinder-context';
 import { useWishlist } from '../../../lib/wishlist-context';
+import { supabase } from '../../../lib/supabase.web';
 import type { TripDay, TripEvent } from '../../../types';
 
 // ── Static best-time data for known inspiration destinations ─────────────────
@@ -142,17 +143,28 @@ export default function TripScreen() {
     setLoadingAlt(prev => ({ ...prev, [key]: true }));
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+
       const res = await fetch('/api/suggest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           destination: folio.destination,
           country: folio.country,
           dayLabel: day.label,
           dayDate: day.date,
-          removedEvent: { kind: removedEvent.kind, title: removedEvent.title, time: removedEvent.time },
+          dayArea: day.area,
+          removedEvent: {
+            kind: removedEvent.kind,
+            title: removedEvent.title,
+            time: removedEvent.time,
+            location: removedEvent.location,
+            meta: removedEvent.meta,
+          },
           existingEvents: day.events.filter((_, i) => i !== eventIdx).map(e => ({
-            kind: e.kind, title: e.title, time: e.time,
+            kind: e.kind, title: e.title, time: e.time, location: e.location, meta: e.meta,
           })),
         }),
       });

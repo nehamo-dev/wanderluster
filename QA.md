@@ -70,6 +70,11 @@ Fix: client now auto-composes after 2nd user message in no-folio chat mode (mode
 - [ ] Confirmed events do NOT show "+" action button
 - [ ] Map address link opens Google Maps in a new browser tab (not blocked by popup blocker)
 - [ ] Wayfinder opens from within the trip screen and receives folio context
+- [ ] Tapping "×" on a suggested event shows a loading state then replaces it with a new suggestion
+- [ ] Replacement suggestion is in the same neighbourhood as other events on that day (not a cross-city detour)
+- [ ] Asking Wayfinder to add something to a specific day → gets a venue suggestion in the same area as existing events
+- [ ] Asking Wayfinder to remove something → warm 1-sentence confirmation, then event is removed
+- [ ] No venue ever suggested twice across the whole folio (no duplicates)
 
 ---
 
@@ -111,6 +116,8 @@ Regression: inspiration folios showed action buttons that mutated local state.
   ```
   (repeat for `/api/compose`, `/api/wishlist`, `/api/suggest`, `/api/feedback`)
 - [ ] Demo users (anonymous sign-in) can still use Wayfinder — their JWT is accepted
+- [ ] **End-to-end demo smoke test**: tap "Try the demo" → home loads → open Wayfinder → type a message → get a reply (not "Unauthorized" or "Connection lost")
+- [ ] Supabase dashboard: confirm Anonymous sign-ins is **enabled** under Authentication → Providers before any deploy that adds auth requirements
 - [ ] Security headers present on Vercel responses: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`
 
 ---
@@ -182,6 +189,10 @@ Regression: images go gray when Wikimedia URLs change or width mismatches.
 - [ ] Opening Wayfinder from inside a trip shows "About your [destination] trip" in the subtitle
 - [ ] Asking a question gets a conversational reply — no trip update triggered
 - [ ] Asking to add something triggers "Updating your [destination] trip…" then rebuilds the trip
+- [ ] Adding to a specific day → suggestion is in the same neighbourhood as existing events on that day
+- [ ] Removing something → Wayfinder gives a warm 1-sentence confirmation, not silence
+- [ ] No duplicate venues suggested (already-booked restaurant not offered again)
+- [ ] Venue suggestions include neighbourhood + brief reason (e.g. "Kyubey in Ginza, known for…")
 
 ---
 
@@ -284,3 +295,5 @@ Regression: images go gray when Wikimedia URLs change or width mismatches.
 | 23 | Settings name/city persisted after sign-out (localStorage not cleared on SIGNED_OUT event) | § 16 |
 | 24 | Signed-in user's trips + wishlist visible in demo mode after sign-out (SIGNED_OUT not handled in folios/wishlist contexts) | § 16 |
 | 25 | Home screen showed previous auth user's name in demo mode — `settings.name` read without `isAnonymous` guard | § 16, § 17 |
+| 26 | `/api/suggest` called without auth headers — returned 401 silently; suggestion replaced with fallback | § 8 suggest |
+| 27 | `/api/suggest` had no geographic context — replacement events ignored day area, sent traveller across the city | § 8 suggest |

@@ -49,11 +49,34 @@ FLIGHT ROUTING — apply whenever flights are mentioned, with or without a folio
 
 FOLIO MODE — active when a folio is loaded (see context below):
 - All restaurant, hotel, and activity suggestions MUST be in the folio's destination city. Never give generic or off-destination recommendations.
-- NO DUPLICATES: Before suggesting any venue, restaurant, hotel, or activity, check the full itinerary provided below. Never suggest something already in the folio — not even a variation of the same place. Suggest genuinely different options.
-- When the user asks to add, change, remove, book, or modify anything in the itinerary: respond in 1–2 sentences confirming exactly what change you are making (e.g. "I'll add a dinner at a kaiseki restaurant in Ginza on Day 3 after the museum."), then on a NEW LINE output exactly:
-  [EDIT: <one paragraph describing the full requested change in plain English, referencing the specific day, time, and venue from the itinerary. Include enough detail for a planning AI to apply the change while preserving everything else.>]
+
+NO DUPLICATES — strict:
+- Before suggesting any venue, restaurant, hotel, or activity, check the FULL itinerary below. Never suggest something already in the folio — not even a variation of the same place (e.g. if "Sukiyabashi Jiro" is in the folio, don't suggest "Jiro Roppongi" either).
+- If every obvious option for a kind is already in the folio, say so and ask what the traveller prefers instead.
+
+GEOGRAPHIC CLUSTERING — critical for a great itinerary:
+- When the user asks to add something to a specific day, look at what's already on that day. Identify the neighbourhood or area those events are in. Suggest something in the same neighbourhood or a short walk/ride away.
+- Example: if Day 3 already has Shinjuku Gyoen and Omoide Yokocho, suggest a ramen spot in Shinjuku — not a temple in Asakusa.
+- If the day has no events yet, suggest something that fits the trip's vibe and the destination's best areas.
+- Always include the neighbourhood in your [EDIT:] tag so the planning AI can set the meta field correctly.
+
+EDIT & REMOVE — golden flows (follow exactly):
+- When the user asks to ADD something: reply in 1 sentence naming the specific venue and neighbourhood (e.g. "I'll add dinner at Narisawa in Minami-Aoyama on Day 3, after the museum."), then on a NEW LINE output:
+  [EDIT: Add a [kind] event on Day [n] at [time] — [venue name], [neighbourhood/area]. [One sentence on what makes it worth visiting / what the change is]. Preserve all other events on this day.]
+- When the user asks to REMOVE something: reply in 1 warm sentence (e.g. "Done — I've taken Senso-ji off Day 2."), then on a NEW LINE output:
+  [EDIT: Remove [event title] from Day [n]. Preserve all other events.]
+- When the user asks to CHANGE or SWAP something: reply in 1 sentence naming both the removed item and replacement, then on a NEW LINE output:
+  [EDIT: Replace [old event title] on Day [n] with [new venue name], [neighbourhood]. [One sentence on the change]. Preserve all other events.]
+- When the user asks to MOVE something: reply in 1 sentence confirming the move, then on a NEW LINE output:
+  [EDIT: Move [event title] from Day [n] to Day [m] at [time]. Preserve all other events on both days.]
 - The [EDIT: ...] tag is a system trigger — it is invisible to the user. Never mention it, describe it, or acknowledge it.
 - NEVER output [EDIT:] for questions or conversational replies — only for actual modification requests (add, change, remove, move, book, swap, replace, cancel, reschedule, insert, drop, shift, update, rebook, switch).
+
+RECOMMENDATION QUALITY:
+- When suggesting a venue, be specific and opinionated. Don't say "a sushi restaurant in Ginza" — say "Kyubey in Ginza, one of Tokyo's most respected counter sushi spots."
+- Include the neighbourhood in every suggestion so the traveller can orient themselves.
+- Briefly state WHY it's worth visiting (one phrase: "known for its standing-room tonkatsu", "the quieter sister shrine to Fushimi Inari").
+- Acknowledge if you can't verify current availability: "worth confirming they're still open before you go."
 - Answer questions about the itinerary concisely. Stay on the topic of that trip.`;
 
 function buildSystem(
@@ -89,14 +112,15 @@ function buildSystem(
       if (day.empty || events.length === 0) {
         lines.push(`  Day ${day.n} (${day.date}): ${day.label} — open day`);
       } else {
+        const areaNote = day.area ? ` [area: ${day.area}]` : '';
         const summary = (events as Array<Record<string, unknown>>)
           .map(e => {
             const parts = [`${e.time ?? '?'} ${e.title}`];
             if (e.location) parts.push(`at ${e.location}`);
-            if (e.meta) parts.push(`(${e.meta})`);
+            else if (e.meta) parts.push(`(${e.meta})`);
             return parts.join(' ');
           }).join(', ');
-        lines.push(`  Day ${day.n} (${day.date}): ${day.label} — ${summary}`);
+        lines.push(`  Day ${day.n} (${day.date}): ${day.label}${areaNote} — ${summary}`);
       }
     }
   }
