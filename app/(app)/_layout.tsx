@@ -76,41 +76,45 @@ function AppLayoutInner() {
 
   return (
     <WayfinderContext.Provider value={{ openCompose, openWayfinder, openWishlist, editFolio }}>
-      <View style={styles.root}>
-        <Stack
-          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-          screenListeners={{
-            state: (e) => {
-              const routes = (e.data as any)?.state?.routes ?? [];
-              const current = routes[routes.length - 1];
-              if (current?.name === 'trip/[id]') {
-                setFolioId(current.params?.id);
-              } else if (!editMode) {
-                setFolioId(undefined);
-              }
-            },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="trip/[id]" />
-          <Stack.Screen name="settings" />
-        </Stack>
+      {/* Outer fill — background colour covers the flanks on wide screens */}
+      <View style={styles.outer}>
+        {/* Centred column — caps width at 480 so it looks intentional on desktop */}
+        <View style={styles.root}>
+          <Stack
+            screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+            screenListeners={{
+              state: (e) => {
+                const routes = (e.data as any)?.state?.routes ?? [];
+                const current = routes[routes.length - 1];
+                if (current?.name === 'trip/[id]') {
+                  setFolioId(current.params?.id);
+                } else if (!editMode) {
+                  setFolioId(undefined);
+                }
+              },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="trip/[id]" />
+            <Stack.Screen name="settings" />
+          </Stack>
 
-        {!sheetOpen && (
-          <WayfinderDock theme={T} onExpand={() => openWayfinder()} />
-        )}
+          {!sheetOpen && (
+            <WayfinderDock theme={T} onExpand={() => openWayfinder()} />
+          )}
 
-        <WayfinderSheet
-          theme={T}
-          open={sheetOpen}
-          onClose={handleClose}
-          seedQuestion={seedQ}
-          folioId={folioId}
-          composeMode={composeMode}
-          editMode={editMode}
-          wishlistMode={wishlistMode}
-          onUpdate={handleUpdate}
-        />
+          <WayfinderSheet
+            theme={T}
+            open={sheetOpen}
+            onClose={handleClose}
+            seedQuestion={seedQ}
+            folioId={folioId}
+            composeMode={composeMode}
+            editMode={editMode}
+            wishlistMode={wishlistMode}
+            onUpdate={handleUpdate}
+          />
+        </View>
       </View>
     </WayfinderContext.Provider>
   );
@@ -129,5 +133,6 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  outer: { flex: 1, backgroundColor: T.bg },
+  root: { flex: 1, maxWidth: 480, width: '100%', alignSelf: 'center' },
 });

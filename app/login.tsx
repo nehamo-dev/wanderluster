@@ -94,9 +94,10 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: T.bg }]}
+      style={[styles.outer, { backgroundColor: T.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <View style={styles.root}>
       {/* Atmospheric strip */}
       <LinearGradient
         colors={[T.surface, T.bg]}
@@ -241,12 +242,14 @@ export default function LoginScreen() {
           </Text>
         </View>
       </SafeAreaView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  outer: { flex: 1 },
+  root: { flex: 1, maxWidth: 480, width: '100%', alignSelf: 'center' },
   safe: { flex: 1 },
   glowTop: {
     position: 'absolute', top: '-30%', right: '-20%',
