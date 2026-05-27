@@ -273,6 +273,5 @@ To enable the nightly GitHub Actions run, add `GROQ_API_KEY` and `EVAL_BASE_URL`
 
 <div align="center">
 
-Built with ✦ by Neha · Powered by Groq + LLaMA
 
 </div>
