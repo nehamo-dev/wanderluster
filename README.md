@@ -34,7 +34,6 @@ No forms. No dropdowns. Just a conversation.
 
 ## Screenshots
 
-> **To add screenshots:** take a snapshot of each screen below, save to `docs/screenshots/`, and replace the placeholder paths.
 
 <table>
   <tr>
