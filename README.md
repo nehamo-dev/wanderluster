@@ -8,15 +8,19 @@
 
 # Wanderluster
 
-**AI-powered travel planning — from idea to itinerary in seconds.**
+**Describe a trip in a sentence. Get back a beautiful, day-by-day plan you'd actually follow.**
 
 <br />
 
-[![Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black?style=flat-square&logo=vercel)](https://wanderluster-six.vercel.app)
+[![Live on Vercel](https://img.shields.io/badge/live-wanderluster--six.vercel.app-black?style=flat-square&logo=vercel)](https://wanderluster-six.vercel.app)
 [![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-000020?style=flat-square&logo=expo)](https://expo.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![Groq](https://img.shields.io/badge/AI-Groq%20LLaMA%203.3-F55036?style=flat-square)](https://groq.com)
-[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square)](LICENSE)
+[![Groq](https://img.shields.io/badge/AI-Groq%20Llama%203.3-F55036?style=flat-square)](https://groq.com)
+[![Nightly evals](https://img.shields.io/badge/AI%20evals-nightly-8a7f6e?style=flat-square)](.github/workflows/evals.yml)
+
+<br />
+
+**▶ Try it now: [wanderluster-six.vercel.app](https://wanderluster-six.vercel.app)** · no account needed
 
 <br />
 
@@ -24,98 +28,99 @@
 
 ---
 
-## What is it?
+## Why this exists
 
-Wanderluster is a travel planning app with an AI concierge called **Wayfinder**. Tell it where you want to go — or paste a link, upload a PDF, describe a vibe — and it builds a structured, day-by-day **Folio**: your trip plan, ready to tweak, share, or book from.
+Planning a trip means twenty open tabs: a blog post, a Reddit thread, a hotel confirmation, a friend's Google Doc, a map pin you'll never find again. Then you copy it all into a spreadsheet that falls apart the moment plans change.
 
-No forms. No dropdowns. Just a conversation.
+Wanderluster replaces the tabs with one conversation. Tell **Wayfinder**, the AI concierge, *"10 days in Tokyo, late March, food and culture"*, or paste a blog link, or drop in a screenshot of your booking. A few seconds later you have a **Folio**: a structured, editorial trip plan, laid out day by day, with real venues, real photos and the logistics already thought through.
+
+No forms. No dropdowns. Just say where you want to go.
 
 <br />
 
 ## Screenshots
 
-
 <table>
   <tr>
     <td align="center" width="33%">
-      <img src="docs/screenshots/home.png" alt="Home — your folios and wishlist" /><br />
-      <sub><b>Home</b> — folios &amp; wishlist</sub>
+      <img src="docs/screenshots/home.png" alt="Home: your folios and wishlist" /><br />
+      <sub><b>Home</b> · folios &amp; wishlist</sub>
     </td>
     <td align="center" width="33%">
-      <img src="docs/screenshots/wayfinder.png" alt="Wayfinder — AI trip planning chat" /><br />
-      <sub><b>Wayfinder</b> — AI concierge</sub>
+      <img src="docs/screenshots/wayfinder.png" alt="Wayfinder: AI trip planning chat" /><br />
+      <sub><b>Wayfinder</b> · the AI concierge</sub>
     </td>
     <td align="center" width="33%">
-      <img src="docs/screenshots/folio.png" alt="Folio — day-by-day trip detail" /><br />
-      <sub><b>Folio</b> — day-by-day plan</sub>
+      <img src="docs/screenshots/folio.png" alt="Folio: day-by-day trip detail" /><br />
+      <sub><b>Folio</b> · the day-by-day plan</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="33%">
-      <img src="docs/screenshots/day-detail.png" alt="Day detail — events with venue photos" /><br />
-      <sub><b>Day detail</b> — events &amp; venues</sub>
+      <img src="docs/screenshots/day-detail.png" alt="Day detail: events with venue photos" /><br />
+      <sub><b>Day detail</b> · events &amp; venues</sub>
     </td>
     <td align="center" width="33%">
-      <img src="docs/screenshots/wishlist.png" alt="Wishlist — dream destinations" /><br />
-      <sub><b>Wishlist</b> — dream destinations</sub>
+      <img src="docs/screenshots/wishlist.png" alt="Wishlist: dream destinations" /><br />
+      <sub><b>Wishlist</b> · dream destinations</sub>
     </td>
     <td align="center" width="33%">
-      <img src="docs/screenshots/login.png" alt="Login — magic link sign in" /><br />
-      <sub><b>Sign in</b> — magic link</sub>
+      <img src="docs/screenshots/login.png" alt="Login: magic link sign in" /><br />
+      <sub><b>Sign in</b> · magic link</sub>
     </td>
   </tr>
 </table>
 
 <br />
 
-## Features
+## What it does
 
-**✦ Wayfinder AI**
-Chat naturally. Wayfinder asks the right questions, then generates a complete itinerary — with flights, hotels, restaurants, and activities laid out by day. Upload a confirmation email or paste an Airbnb link and it reads what you've already booked.
+**✦ Plan from anything.** Chat, paste a link, upload a PDF or a screenshot. Wayfinder reads what you've already booked and plans around it. If your flights and hotel are sorted, it skips suggesting them and spends its effort on food and things to do.
 
-**✦ Folios**
-Every trip lives in a Folio — a structured plan with confirmed and suggested events, visa notes, packing context, and a hero photo. Edit any detail by asking Wayfinder to change it.
+**✦ Folios, not spreadsheets.** Each trip is a Folio: confirmed and suggested events by day, visa notes, timing tips, map links and a hero photo of the destination. Every hotel, restaurant and activity carries a live venue thumbnail from Google Places.
 
-**✦ Venue photos**
-Each hotel, restaurant, and activity shows a live thumbnail pulled from Google Places — so your folio looks as good as the trip itself.
+**✦ Edit by asking.** "Swap Day 3 dinner for something in Shibuya." Wayfinder rewrites just that event and keeps it in the same neighbourhood as the rest of your day.
 
-**✦ Wishlist**
-Save dream destinations. Add anything to your wishlist through the same Wayfinder interface — it captures the best time to visit, typical budget, and vibes.
+**✦ Plans that make geographic sense.** Days are clustered by area, so you aren't zig-zagging across a city. Transport is realistic: a train for short hops, a flight with a plausible layover when there's no direct service.
 
-**✦ Inspiration**
-Curated example trips you can open, explore, and convert into your own Folio with one tap.
+**✦ Remove something, get something better.** Drop an event and Wayfinder suggests a replacement nearby. Your removals feed back into future suggestions.
 
-**✦ Smart transport routing**
-Wayfinder knows when to suggest a flight vs. a train. Short-haul trips get surface transport; long-haul gets the right airline and a realistic layover when no direct service exists.
+**✦ A wishlist for someday.** Save dream destinations through the same chat. Wayfinder fills in the best season, typical budget and the vibe.
 
-**✦ Auth + sync**
-Magic link sign-in via Supabase. Folios, wishlist, and settings sync across devices for signed-in users. Demo mode works without an account — no sign-up required.
-
-**✦ Beautiful, minimal design**
-Warm bone palette. No stock photos — every destination image is sourced from Wikimedia Commons. Typography-first. Works in any browser, no app store required.
+**✦ Works before you sign up.** The demo is the full product, not a preview. Sign in with a magic link and everything syncs across devices, including what you made as a guest.
 
 <br />
 
 ## How it works
 
 ```
-User types: "10 days in Tokyo, late March, food and culture"
+"10 days in Tokyo, late March, food and culture"
                           │
-                Wayfinder (LLaMA 3.3 via Groq)
+           Wayfinder · Llama 3.3 70B on Groq
+          (screenshots → Llama 4 Scout vision)
                           │
           ┌───────────────┴───────────────┐
-      Streaming JSON                  Streamed chat
-     (folio structure)            (questions & replies)
+   Streaming JSON folio              Streaming chat
+          │                         (questions, edits)
+   parseCompose: extract, sanitise,
+   derive real weekdays from YYYY-MM-DD
           │
- Parse + validate dates
+   Hero photo (Wikipedia, filtered)  ·  Venue photos (Google Places, proxied)
           │
-  Fetch hero photo (Wikipedia API)
-  Fetch venue photos (Google Places)
+   Supabase (signed in)  /  localStorage (guest)
           │
-   Save to Supabase (auth) / localStorage (demo)
-          │
-    Open trip detail screen
+   Folio opens, ready to edit
 ```
+
+### Engineering highlights
+
+- **The AI never decides what day of the week it is.** The model returns ISO dates; `parseCompose.ts` derives weekdays and labels itself. LLMs routinely get "Tuesday, March 25" wrong, and a travel plan with the wrong weekday is worse than no plan.
+- **Streaming structured output.** Folios stream in as JSON and are parsed and sanitised before anything is saved, so a half-written or malformed response never becomes a broken trip.
+- **Control tags, not free text.** Wayfinder signals intent with `[COMPOSE:]` and `[EDIT:]` tags (including the neighbourhood) that the client strips and routes, keeping the chat readable and the edits precise.
+- **One sheet, every mode.** New trip, edit, wishlist and compose-from-file all run through a single `WayfinderSheet` with explicit mode routing, so there's one conversation pattern to learn and to maintain.
+- **Dual-mode persistence.** Every store (folios, wishlist, settings) works against Supabase when signed in and `localStorage` as a guest, with a one-time migration on first login. `addFolio()` stays synchronous for instant navigation while the database write happens in the background.
+- **Security that's actually wired up.** Every AI route requires a Supabase JWT (guests get an anonymous one) and is rate-limited per user. Link import is SSRF-hardened: https only, private IP ranges blocked, content-type checked, 500 KB cap, 8 s timeout. CSP, HSTS and Cloudflare Turnstile in production. API keys never reach the browser.
+- **Evals, not vibes.** A nightly GitHub Actions run scores the deployed app across five suites (hallucination, compose, wayfinder, drift and tool misuse) against a stored baseline, catching invented flights, broken JSON and persona drift before users do.
 
 <br />
 
@@ -125,19 +130,19 @@ User types: "10 days in Tokyo, late March, food and culture"
 |---|---|
 | **Framework** | [Expo](https://expo.dev) SDK 54 · Expo Router 6 · React Native Web |
 | **Language** | TypeScript |
-| **AI** | [Groq](https://groq.com) · LLaMA 3.3 70B (chat/compose) · LLaMA 4 Scout 17B (vision) |
-| **Deployment** | [Vercel](https://vercel.com) (static export + edge functions) |
+| **AI** | [Groq](https://groq.com) · Llama 3.3 70B (chat and compose) · Llama 4 Scout 17B (vision) |
+| **Hosting** | [Vercel](https://vercel.com) (static export + edge functions) |
 | **Auth** | [Supabase](https://supabase.com) (magic link + anonymous) |
-| **Storage** | Supabase (authenticated) · `localStorage` (demo fallback) |
-| **Venue photos** | [Google Places API](https://developers.google.com/maps/documentation/places) |
-| **Hero photos** | [Wikimedia Commons](https://commons.wikimedia.org) (CC-licensed) |
-| **CAPTCHA** | [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) |
+| **Storage** | Supabase Postgres with row-level security · `localStorage` for guests |
+| **Venue photos** | [Google Places API](https://developers.google.com/maps/documentation/places), proxied server-side |
+| **Hero photos** | [Wikimedia Commons](https://commons.wikimedia.org) |
+| **Bot protection** | [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) |
 
 <br />
 
 ## Getting started
 
-**Prerequisites:** Node ≥ 20, a [Groq API key](https://console.groq.com) (free tier works fine)
+**Prerequisites:** Node ≥ 20 and a [Groq API key](https://console.groq.com) (the free tier is enough).
 
 ```bash
 git clone https://github.com/nehamo-dev/wanderluster.git
@@ -152,40 +157,22 @@ GROQ_API_KEY=your_groq_key_here
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 
-# Optional — enables venue photo thumbnails on events
+# Optional: venue photo thumbnails on events
 GOOGLE_MAPS_API_KEY=your_google_maps_key_here
 
-# Optional — enables Cloudflare Turnstile CAPTCHA on login
+# Optional: Cloudflare Turnstile on login
 EXPO_PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key_here
 ```
 
-Run the dev server:
-
 ```bash
-npm run web
-# → http://localhost:8082
+npm run web      # http://localhost:8082
+npm run build    # static export to dist/ (must pass with zero TypeScript errors)
+npm run eval     # run the AI eval suites against localhost
 ```
 
-<br />
+### Deploying
 
-## Deployment
-
-The app is a standard Expo web export deployed to Vercel. API routes live in `app/api/` and are served as Vercel Edge Functions.
-
-```bash
-npm run build          # builds to dist/
-vercel --prod          # deploy
-```
-
-Set these environment variables in your Vercel project:
-
-| Variable | Required |
-|---|---|
-| `GROQ_API_KEY` | ✅ |
-| `EXPO_PUBLIC_SUPABASE_URL` | ✅ |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | ✅ |
-| `EXPO_PUBLIC_TURNSTILE_SITE_KEY` | recommended |
-| `GOOGLE_MAPS_API_KEY` | optional |
+`vercel --prod` after a build. Set `GROQ_API_KEY`, `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (required), plus `EXPO_PUBLIC_TURNSTILE_SITE_KEY` and `GOOGLE_MAPS_API_KEY` (recommended). For nightly evals, add `GROQ_API_KEY` and `EVAL_BASE_URL` as repo secrets.
 
 <br />
 
@@ -193,84 +180,37 @@ Set these environment variables in your Vercel project:
 
 ```
 app/
-  (app)/
-    index.tsx          ← home screen
-    trip/[id].tsx      ← folio detail + inspiration
-    settings.tsx       ← user profile + preferences
-  api/
-    compose+api.ts     ← streaming folio generation
-    wayfinder+api.ts   ← streaming chat
-    wishlist+api.ts    ← wishlist item generation
-    suggest+api.ts     ← alternative event suggestions
-    place-photo+api.ts ← Google Places venue photo proxy
-    feedback+api.ts    ← event feedback collection
-
+  (app)/index.tsx        home: folios, wishlist, inspiration
+  (app)/trip/[id].tsx    folio detail
+  api/                   compose · wayfinder · wishlist · suggest · feedback · place-photo
+api/                     Vercel edge functions (deployed copies of the routes)
 components/
-  wayfinder/           ← WayfinderDock + WayfinderSheet (the AI modal)
-  home/                ← FolioTile, WishlistTile, AddTile
-  trip/                ← DayCard, EventRow (with venue photos)
-  auth/                ← TurnstileWidget
-
+  wayfinder/             WayfinderDock + WayfinderSheet, the one AI surface
+  trip/                  DayCard, EventRow (venue photos, map links)
+  home/                  folio and wishlist tiles
 lib/
-  folios-context.tsx   ← trip state (Supabase + localStorage)
-  wishlist-context.tsx ← wishlist state (Supabase + localStorage)
-  settings-context.tsx ← user preferences (Supabase + localStorage)
-  api-auth.ts          ← JWT auth + rate limiting for API routes
-  parseCompose.ts      ← AI output → typed Folio
-
-constants/
-  theme.ts             ← design tokens (bone, stone, ivory, ink palettes)
-  photos.ts            ← Wikimedia URLs + fetchWikiPhoto()
+  parseCompose.ts        AI output → typed, date-corrected Folio
+  api-auth.ts            JWT auth + per-user rate limiting
+  *-context.tsx          dual-mode stores (Supabase / localStorage)
+evals/                   hallucination · compose · wayfinder · drift · tool-misuse
 ```
-
-<br />
-
-## Security
-
-All AI API routes require a valid Supabase JWT and are rate-limited per user. Demo users receive an anonymous JWT so auth works seamlessly without an account. SSRF protection, security headers (CSP, HSTS, X-Frame-Options), and Cloudflare Turnstile CAPTCHA are all active in production.
-
-<br />
-
-## AI evals
-
-A nightly eval suite runs against the deployed app to catch AI regressions — hallucinated events, broken JSON, invented flight details, and drift in Wayfinder's persona.
-
-```bash
-npm run eval                    # run all suites vs localhost
-npm run eval:suite compose      # single suite
-npm run eval:baseline           # update baseline after a good run
-```
-
-Suites: `hallucination · compose · wayfinder · drift · tool-misuse`
-
-To enable the nightly GitHub Actions run, add `GROQ_API_KEY` and `EVAL_BASE_URL` to your repo secrets.
 
 <br />
 
 ## Design principles
 
-- **Warm, typographic, editorial.** The app should feel like a well-designed travel journal, not a SaaS dashboard.
-- **No stock photos.** All images are sourced from Wikimedia Commons at 960px. URLs are verified before shipping.
-- **Language matters.** Trips are *Folios*. The AI is *Wayfinder*. Days are not *itineraries*.
-- **Conversation first.** Every creation flow — new trip, wishlist item, edits — goes through the same Wayfinder interface. No separate forms.
+- **Editorial, not enterprise.** It should feel like a well-made travel journal, not a SaaS dashboard. Warm bone palette, typography first.
+- **Real places, real photos.** Every destination image comes from Wikimedia Commons and is verified before shipping. No stock photos.
+- **Words matter.** Trips are *Folios*. The AI is *Wayfinder*.
+- **Conversation first.** Every creation flow (new trip, wishlist item, edits) goes through Wayfinder. There are no separate forms.
 
 <br />
 
 ## Roadmap
 
 - [ ] Price tracking for wishlist destinations
-- [ ] Calendar sync (Google Calendar)
-- [ ] Email import (Gmail — auto-detect bookings)
-- [ ] One-tap booking suggestions
-- [ ] Native iOS + Android apps
-- [ ] Shared folios / collaborative planning
+- [ ] Google Calendar sync
+- [ ] Gmail import that auto-detects bookings
+- [ ] Shared folios and collaborative planning
+- [ ] Native iOS and Android apps
 - [ ] Offline mode
-
-<br />
-
----
-
-<div align="center">
-
-
-</div>
